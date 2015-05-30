@@ -6,7 +6,8 @@
 
 }());
 
-var _ = require('./underscore.js');
+// var _ = require('./underscore.js');
+var _ = require('lodash');
 var u = {
 
     // Concat mixture of arrays/numbers
@@ -29,50 +30,54 @@ var u = {
         console.log(_.map([x, y], _.size));
         // var t = _.map()
     },
-    // if both nums or if y longer, return 1; if x shorter, return -1; else return 0
-    multlen: function(x, y) {
-        // if (_.isNumber(x) | _.isNumber(y)) return 1;
-        var l = _.map([x, y], _.size);
-        if (l[1] % l[0] == 0) return -1;
-        // if (l[1] % l[0] == 0) return l[1] / l[0];
-        if (l[0] % l[1] == 0) return 1;
-        // if (l[0] % l[1] == 0) return l[0] / l[1];
-        return 0;
+    distributeLeft: function(fn, X, y) {
+        var res = [],
+            len = X.length,
+            L = len - 1;
+        while (len--) res.push(fn(X[L - len], y));
+        return res;
     },
-    // applying function fn by distributing x over y, or y over x, dep on len
-    distribute: function(fn, X, Y) {
-        var xn = (typeof X == 'number'),
-            yn = (typeof Y == 'number');
-        if (xn && yn) return fn(X, Y);
-        if (!xn && yn) {
-        	var res = [], len = X.length, L = len-1;
-        	while(len--) res.push(fn(X[L-len], Y));
-        	return res;
-        }
-        if (!yn && xn) {
-			var res = [], len = Y.length, L = len-1;
-        	while(len--) res.push(fn(X, Y[L-len]));
-        	return res;
-        }
+    distributeBoth: function(fn, X, Y) {
         var Xlen = X.length,
             Ylen = Y.length;
         // if dimensions match
-        if ((Ylen == Xlen) | (Ylen % Xlen == 0) | (Xlen % Ylen == 0)) {
+        if ((Ylen == Xlen) || (Ylen % Xlen == 0) || (Xlen % Ylen == 0)) {
             var longer, llen, shorter, slen;
             if (Ylen > Xlen) {
-                longer = Y; llen = Ylen; shorter = X; slen = Xlen;
+                longer = Y;
+                llen = Ylen;
+                shorter = X;
+                slen = Xlen;
             } else {
-                longer = X; llen = Xlen; shorter = Y; slen = Ylen;
+                longer = X;
+                llen = Xlen;
+                shorter = Y;
+                slen = Ylen;
             }
             // recursive call of distribute
-            var res = [], L = llen-1;
-            while(llen--) {
-            	res.push(u.distribute(fn, shorter[(L-llen) % slen], longer[L-llen]));
+            var res = [],
+                L = llen - 1;
+            while (llen--) {
+                res.push(u.distribute(fn, shorter[(L - llen) % slen], longer[L - llen]));
             }
             return res;
         } else throw "Cannot distribute arrays of different dimensions.";
     },
+    // applying function fn by distributing x over y, or y over x, dep on len
+    distribute: function(fn, X, Y) {
+        var xn = (X instanceof Array),
+            yn = (Y instanceof Array);
+        if (!xn && !yn) return fn(X, Y);
+        else if (xn && !yn) {
+            return u.distributeLeft(fn, X, Y);
+        } else if (yn && !xn) {
+            return u.distributeLeft(fn, Y, X);
+        } else {
+            return u.distributeBoth(fn, X, Y);
+        }
+    },
     // basis to build all multi-args fn from binary fn, where arg[0] = fn, rest = args
+    // Reimplement dis using while
     associate: function(fn, argsObj) {
         // var fn = arguments[0];
         // return _.reduce(_.toArray(arguments).slice(1), function(mem, n) {
@@ -95,9 +100,6 @@ var u = {
     }
 }
 
-var v = _.range(6);
-var w = _.range(2);
-var z = [v, v];
 // console.log(v);
 // console.log(w);
 // console.log(z);
@@ -146,7 +148,7 @@ function asum(v) {
     var res = 0;
     var len = v.length;
     while (len--) {
-        res += (Array.isArray(v[len]) ? asum(v[len]) : v[len])
+        res += (v[len] instanceof Array ? asum(v[len]) : v[len])
     }
     return res;
 };
@@ -155,21 +157,26 @@ function sum() {
     var res = 0;
     var len = arguments.length;
     while (len--) {
-        res += (Array.isArray(arguments[len]) ? asum(arguments[len]) : arguments[len])
+        res += (arguments[len] instanceof Array ? asum(arguments[len]) : arguments[len])
     }
     return res;
 };
 // best. 5 times faster than R
 function c() {
-    var res = [];
+    // var res = [];
     var len = arguments.length;
+    var res = Array(len);
     var L = len - 1;
     while (len--) {
-        if (Array.isArray(arguments[L - len])) res = res.concat(arguments[L - len]);
+        if (arguments[L - len] instanceof Array) res = res.concat(arguments[L - len]);
         else res.push(arguments[L - len]);
     }
     return res;
 };
+
+function c2() {
+
+}
 
 
 // console.log(v[1].length)
@@ -191,23 +198,112 @@ function add(X, Y) {
     return u.distribute(aadd, X, Y);
 };
 
+// Do dis next: use while + push arr trick
+// Do dis next: use while + push arr trick
+// Do dis next: use while + push arr trick
+// Do dis next: use while + push arr trick
+// Do dis next: use while + push arr trick
+function associate() {
+    return u.distribute(add, v, v);
+};
 
-console.log(v);
+function ladd() {
+	try {
+		// return aadd(arguments[0], arguments[1]);
+		return aadd.apply(null,arguments);
+	}
+	catch (error) {
+		console.log("args are", arguments);
+	}
+    // var len = arguments.length,
+    //     res = add(arguments[--len], arguments[--len]);
+    // // while (len--) {
+    // // 	res = add(res, arguments[len]);
+    // // }
+    // while (len--) res = add(res, arguments[len]);
+    // return res;
+}
+
+function vadd(X, Y) {
+    var res = [],
+        len = X.length,
+        L = len - 1;
+    while (len--) res.push(aadd(X[L - len], Y[L-len]));
+    return res;
+}
+
+// var v = [0, 1, 2, 3, 4, 5];
+var v = [0,1,2,3,4,5]
+var x = v.slice(0);
+var y = v.slice(0);
+var z = v.slice(0);
+// console.log(x);
+var w = [0,1];
+// var z = [v, v];
+
+// function test
+
+console.log(ladd(v, v, v))
+console.log(m.add(v, v))
+
+console.log(v instanceof Array);
+console.log(x instanceof Array);
+
+var ld = require('lodash');
+v = ld.range(10);
+// console.log(add(v,w));
 // console.log(add(v, _.range(3)));
 // console.log(add(_.range(3), v));
-console.log(m.add(v, v));
-
+// console.log(m.add(v, v));
+// var x = add(v, v);
+console.log("adder",_.add(1,1,1))
 function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
     while (MAX--) {
+    	// _.add(1,1,1)
+    	// v instanceof Array;
+    	// x instanceof Array;
+
+        // ladd(v,1); // 5.2
+        // ladd(v,1,2); // 5.7
+        // ladd(v,v);
+        // ladd(ladd(v,v),v); // triple target: 30s wtffff
+        // add(add(v,v),v) // 28
+        // var x = aadd(1,1);
+        // aadd(aadd(1,1),1);
+        // aadd(1,1);
+        // aadd(x,1); 
+        // add(1,1);
+        // ladd(1,1)
+        // ladd(v,1,1); // 4s
+        // ladd(v,v); // 8s R: 16s
+        // m.add(v,v); // 21s
+        // ladd(v,v,v);
+        // add(add(v,v),v) //37
+        // ladd(x,y); //8.5
+        // v.slice(0);
+        // vadd(v,v); //2.9
+        // vadd(vadd(x,x),x); //5.6
+        // vadd(vadd(v,v),v); //6.2
+        // 
+        // vadd(x,x);
+        // ladd(y,y,y); // 16.5
+        // ladd(v,v,v); // 30
+        // ladd(x,y,z); //8.5
+        // add(add(v,1),1) 18s
+        // add(add2(v,v), v);
+        // ladd(v,v,v); // 28 R: 25s wtfff. R v+w:17s
+
         // typeof v == 'number';
         // typeof v == 'number';
+        // v instanceof Array
+        // v instanceof Array
 
         // badd(v,1); // 3 vs R: 15.8
         // aadd(1,1); // 0.07
         // console.log(add(1,1))
-        // add(1, 1); // 0.09
+        // add(1, 1); // 0.52 vs R w/ 1+1: 9.13
         // add(v,1); // 3.3 vs R: 15.8
         // add(v,v); // 8 vd R: 17
         // add(v,w); // 7 vd R: 17
@@ -233,21 +329,41 @@ function benchmark() {
         // m.sum(0,1,2,3,4,5,v) //12.4
 
         // asum(v); // 2.9 vs R: 18.7
-        // asum([0,1,2,3,4,5,v]); //8.3
+        // asum([v,v]); // 7.7 vs R: 18.7
+        // asum([0,1,2,3,4,5,v]); //6.1
         // asum([0,1,[2,3,4],5,v]); //8.2
 
-        // sum(0,1,2,3,4,5); // 2.5
-        // sum(0,1,2,3,4,5,v); //5.4
-        // sum(0,1,[2,3,4],5,v); //6.5
+    	// _.sum(0,1)
+    	// _.sum(v)
+    	// sum(v); //3.09
+        // sum(0,1,2,3,4,5); // 2.5 new 1.45 using instanceof
+        // sum(0,1,2,3,4,5,v); // 5.4 new 3.4 vs R: 53
+        // sum(0,1,[2,3,4],5,v); //15.7
 
-        // c(0,1,2,3,4,5); // 0.9 per 10mil runs
-        // c(0,1,v,v); //4.5
+        // v instanceof Array;
+        // Array.isArray(v)
+        // [2,3,4] instanceof Array;
+        // 2 instanceof Array;
+        // Array.isArray([2,3,4])
+
+        // Concat
+        // c(0,1,2,3,4,5); // 3.3 per 50mil runs
+        // c(v); //9.1
+        // c(0,1,2,3,4,5,v); //14.37
+        // c(0,1,v,v); //22.1
         // c(0,1,[2,3,4],5,v); //5.3
+        
+        // _.range(10);
+
     }
     var end = new Date().getTime();
     var time = end - start;
     console.log('Execution time: ' + time / 1000, 'seconds');
 }
+
+console.log("deep",sum(0,1,[2,3,4,v],5,v))
+console.log(sum(v));
+console.log(v);
 
 benchmark();
 
@@ -263,3 +379,49 @@ function bm(fn, arg) {
     var time = end - start;
     console.log('Execution time: ' + time / 1000, 'seconds');
 }
+
+
+
+
+
+function unshiftprepend() {
+    var res = [],
+        len = 10;
+    while (len--) {
+        res.unshift(len);
+    }
+    return res;
+}
+
+// the best pattern. 16 times faster than append()
+function pushprepend() {
+    var res = [],
+        len = 10,
+        L = len - 1;
+    while (len--) {
+        res.push(L - len);
+    }
+    return res;
+}
+
+// TOC alternative/
+function factorial(n) {
+    return n ? n * factorial(n - 1) : 1
+}
+
+function factorial(n) {
+    function recur(n, acc) {
+        return n == 0 ? acc : recur(n - 1, n * acc);
+    }
+    return recur(n, 1);
+}
+
+function factorial(n) {
+    var _factorial = function myself(acc, n) {
+        return n ? myself(acc * n, n - 1) : acc
+    };
+    return _factorial(1, n);
+}
+
+console.log(factorial(10));
+
