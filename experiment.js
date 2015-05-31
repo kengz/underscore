@@ -30,51 +30,100 @@ var u = {
         console.log(_.map([x, y], _.size));
         // var t = _.map()
     },
+    distributeRight: function(fn, x, Y) {
+        var len = Y.length,
+            res = Array(len);
+        while (len--) res[len] = Y[len] instanceof Array ?
+            u.distributeRight(x, Y[len]) :
+            fn(x, Y[len])
+        return res;
+    },
     distributeLeft: function(fn, X, y) {
-        var res = [],
-            len = X.length,
-            L = len - 1;
-        while (len--) res.push(fn(X[L - len], y));
+        var len = X.length, res = Array(len);
+        // while (len--) res[len] = fn(X[len], y);
+        while (len--) {
+        	res[len] = X[len] instanceof Array ?
+        	u.distributeLeft(X[len], y) :
+        	fn(X[len], y)
+        }
         return res;
     },
     distributeBoth: function(fn, X, Y) {
-        var Xlen = X.length,
-            Ylen = Y.length;
-        // if dimensions match
-        if ((Ylen == Xlen) || (Ylen % Xlen == 0) || (Xlen % Ylen == 0)) {
-            var longer, llen, shorter, slen;
-            if (Ylen > Xlen) {
-                longer = Y;
-                llen = Ylen;
-                shorter = X;
-                slen = Xlen;
-            } else {
-                longer = X;
-                llen = Xlen;
-                shorter = Y;
-                slen = Ylen;
-            }
-            // recursive call of distribute
-            var res = [],
-                L = llen - 1;
-            while (llen--) {
-                res.push(u.distribute(fn, shorter[(L - llen) % slen], longer[L - llen]));
-            }
-            return res;
-        } else throw "Cannot distribute arrays of different dimensions.";
+    	var L, S;
+    	if (X.length > Y.length) {L = X; S = Y;}
+        else {L = Y; S = X;}
+        var Llen = L.length, Slen = S.length, res = Array(Llen);
+        while (Llen--) {
+        	var s = S[Llen % Slen];
+        	res[Llen] = u.distribute(fn, s, L[Llen]);
+        	// res[Llen] = s instanceof Array ?
+        	// 	u.distribute(fn, s, L[Llen]) :
+        	// 	u.distributeLeft(fn, L[Llen], s)
+        }
+        return res;
+
+        // var Xlen = X.length,
+        //     Ylen = Y.length;
+        // // if dimensions match
+        // if ((Ylen == Xlen) || (Ylen % Xlen == 0) || (Xlen % Ylen == 0)) {
+        //     var longer, llen, shorter, slen;
+        //     if (Ylen > Xlen) {
+        //         longer = Y;
+        //         llen = Ylen;
+        //         shorter = X;
+        //         slen = Xlen;
+        //     } else {
+        //         longer = X;
+        //         llen = Xlen;
+        //         shorter = Y;
+        //         slen = Ylen;
+        //     }
+        //     // recursive call of distribute
+        //     var res = [],
+        //         L = llen - 1;
+        //     while (llen--) {
+        //         res.push(u.distribute(fn, shorter[(L - llen) % slen], longer[L - llen]));
+        //     }
+        //     return res;
+        // } else throw "Cannot distribute arrays of different dimensions.";
+
+        // var L, S;
+        // if (X.length > Y.length) {L = X; S = Y;}
+        // else {L = Y; S = X;}
+        // var Llen = L.length, Slen = S.length, res = Array(Llen);
+        // while (Llen--) {
+        // 	var s = S[Llen % Slen];
+        // 	res[Llen] = s instanceof Array ?
+        //         u.distributeBoth(fn, s, L[Llen]) :
+        //         u.distributeLeft(fn, s, L[Llen])
+        // }
+        // return res;
+
     },
     // applying function fn by distributing x over y, or y over x, dep on len
     distribute: function(fn, X, Y) {
-        var xn = (X instanceof Array),
-            yn = (Y instanceof Array);
-        if (!xn && !yn) return fn(X, Y);
-        else if (xn && !yn) {
-            return u.distributeLeft(fn, X, Y);
-        } else if (yn && !xn) {
-            return u.distributeLeft(fn, Y, X);
-        } else {
-            return u.distributeBoth(fn, X, Y);
+    	if (X instanceof Array) {
+            return Y instanceof Array ?
+            u.distributeBoth(fn, X, Y) :
+            u.distributeLeft(fn, X, Y);
+            // u.distributeRight(fn, Y, X);
         }
+        else {
+        	return Y instanceof Array ?
+                u.distributeLeft(fn, Y, X) :
+                // u.distributeRight(fn, X, Y) :
+                fn(X, Y);
+        }
+        // var xn = (X instanceof Array),
+        //     yn = (Y instanceof Array);
+        // if (!xn && !yn) return fn(X, Y);
+        // else if (xn && !yn) {
+        //     return u.distributeLeft(fn, X, Y);
+        // } else if (yn && !xn) {
+        //     return u.distributeLeft(fn, Y, X);
+        // } else {
+        //     return u.distributeBoth(fn, X, Y);
+        // }
     },
     // basis to build all multi-args fn from binary fn, where arg[0] = fn, rest = args
     // Reimplement dis using while
@@ -208,20 +257,20 @@ function associate() {
 };
 
 function ladd() {
-	try {
-		// return aadd(arguments[0], arguments[1]);
-		return aadd.apply(null,arguments);
-	}
-	catch (error) {
-		console.log("args are", arguments);
-	}
-    // var len = arguments.length,
-    //     res = add(arguments[--len], arguments[--len]);
-    // // while (len--) {
-    // // 	res = add(res, arguments[len]);
-    // // }
-    // while (len--) res = add(res, arguments[len]);
-    // return res;
+	// try {
+	// 	// return aadd(arguments[0], arguments[1]);
+	// 	return aadd.apply(null,arguments);
+	// }
+	// catch (error) {
+	// 	console.log("args are", arguments);
+	// }
+    var len = arguments.length,
+        res = add(arguments[--len], arguments[--len]);
+    // while (len--) {
+    // 	res = add(res, arguments[len]);
+    // }
+    while (len--) res = add(res, arguments[len]);
+    return res;
 }
 
 function vadd(X, Y) {
@@ -246,11 +295,8 @@ var w = [0,1];
 console.log(ladd(v, v, v))
 console.log(m.add(v, v))
 
-console.log(v instanceof Array);
-console.log(x instanceof Array);
-
-var ld = require('lodash');
-v = ld.range(10);
+console.log("dual", ladd(v,w))
+console.log("meh", u.distribute(u.b_add, v,v));
 // console.log(add(v,w));
 // console.log(add(v, _.range(3)));
 // console.log(add(_.range(3), v));
@@ -266,8 +312,13 @@ function benchmark() {
     	// x instanceof Array;
 
         // ladd(v,1); // 5.2
+        // ladd(v,v); // 12.3 /6
+        // u.distribute(u.b_add, v,v)
+        u.distribute(u.b_add, v,w)
+        // u.distributeLeft(u.b_add, v,1)
         // ladd(v,1,2); // 5.7
-        // ladd(v,v);
+        // ladd(x,x,x); //
+        // ladd(x,y,z);
         // ladd(ladd(v,v),v); // triple target: 30s wtffff
         // add(add(v,v),v) // 28
         // var x = aadd(1,1);
@@ -361,9 +412,6 @@ function benchmark() {
     console.log('Execution time: ' + time / 1000, 'seconds');
 }
 
-console.log("deep",sum(0,1,[2,3,4,v],5,v))
-console.log(sum(v));
-console.log(v);
 
 benchmark();
 
