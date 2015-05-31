@@ -291,13 +291,13 @@ function add() {
 }
 
 
-// function vadd(X, Y) {
-//     var res = [],
-//         len = X.length,
-//         L = len - 1;
-//     while (len--) res.push(aadd(X[L - len], Y[L-len]));
-//     return res;
-// }
+function vadd(X, Y) {
+    var res = [],
+        len = X.length,
+        L = len - 1;
+    while (len--) res.push(aadd(X[L - len], Y[L-len]));
+    return res;
+}
 
 // var v = [0, 1, 2, 3, 4, 5];
 var v = [0,1,2,3,4,5]
@@ -324,17 +324,8 @@ function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
     while (MAX--) {
-    	// _.add(1,1,1)
-    	// v instanceof Array;
-    	// x instanceof Array;
-
-        // ladd(v,1); // 5.2
-        // ladd(v,v); // 12.3 /6
-        // u.distribute(u.b_add, v,v)
-        // u.distribute(u.b_add, v,w)
-        // u.distributeLeft(u.b_add, v,1)
-        // 
-        add(v,1); // 5.7
+        // add(v,1); // 3.5
+        // add(v,v); // 7.1
         // ladd(x,x,x); //
         // ladd(x,y,z);
         // ladd(ladd(v,v),v); // triple target: 30s wtffff

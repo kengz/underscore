@@ -90,9 +90,11 @@ var u = {
         var len = Y.length,
             res = Array(len);
         while (len--) res[len] = Y[len] instanceof Array ?
-            u.distributeRight(x, Y[len]) : fn(x, Y[len])
+            u.distributeRight(fn, x, Y[len]) : fn(x, Y[len])
         return res;
     },
+
+
     // assuming both arrays, repeat the shorter over the longer
     // call internally recur till can distribute right or just apply
     distributeBoth: function(fn, X, Y) {
@@ -114,12 +116,15 @@ var u = {
             return res;
         } else throw "Cannot distribute arrays of different dimensions.";
     },
+    // add a uniform distribute assump: once detect is not arr, all is not arr
+    // add a uniform distribute assump: once detect is not arr, all is not arr
     // the true distribute method
     // (u.a_add,w,w) 7.5 / 16.4
+    // This method is correct and at its fastest. But may rebuild specific multiplication/distribution methods later, which may be even faster
     distribute: function(fn, X, Y) {
         if (X instanceof Array)
             return Y instanceof Array ?
-                u.distributeBoth(fn, X, Y) : u.distributeRight(fn, Y, X);
+                 u.distributeBoth(fn, X, Y) : u.distributeRight(fn, Y, X);
         else
             return Y instanceof Array ?
                 u.distributeRight(fn, X, Y) : fn(X, Y);
@@ -142,11 +147,11 @@ var u = {
         return x + y;
     },
     // the generic add
-    // (v,1) 6.3 / 15.7
-    // (v,v) 10.1 / 16.4
-    // (v,v,v) 22.1 / 25.3
-    // (v,v,v,v) 29.4 / 33.9
-    // (v,v,v,v,v) 37.5 / 42.2
+    // (v,1) 5.7 / 15.7 aim for 3?
+    // (v,v) 8.6 / 16.4 aim for 3s
+    // (v,v,v) 18.9 / 25.3 aim for 6s
+    // (v,v,v,v) 25.1 / 33.9
+    // (v,v,v,v,v) 33.4 / 42.2
     // (v,1,2,3,4,5,6,7,8,9,0) 17.3 / 76.8
     add: function() {
         // sample call pattern: pass whole args
@@ -158,81 +163,49 @@ var u = {
         return x - y;
     },
     subtract: function() {
-    	return u.asso(u.a_subtract, arguments);
+        return u.asso(u.a_subtract, arguments);
+    },
+
+    a_multiply: function(x, y) {
+        return x * y;
+    },
+    multiply: function() {
+        return u.asso(u.a_multiply, arguments);
+    },
+
+    a_divide: function(x, y) {
+        return x / y;
+    },
+    divide: function() {
+        return u.asso(u.a_divide, arguments);
+    },
+
+    // (v,v) 10.9
+    dot: function(X, Y) {
+        return _.sum(u.multiply(X, Y));
     }
 
-
-
-
-
-
+    // Need data dimension transformer
+    // Need data dimension transformer
+    // Need data dimension transformer
+    // Need data dimension transformer
+    // Need data dimension transformer
+    // Need data dimension transformer
 
 }
 
 
-// u.asso(u.add2, 1,2,3)
-
-
-
-// // fast as x+y; no major delay from fn wrapping
-// function aadd(x, y) {
-//     return x + y;
-// };
-// // best: twice faster than R, 3 times faster than mathjs
-// // also can add diff dims like in R, whereas mathjs cant
-// function add(X, Y) {
-//     return u.distribute(aadd, X, Y);
-// };
-
-
-// function ladd() {
-// 	// try {
-// 	// 	// return aadd(arguments[0], arguments[1]);
-// 	// 	return aadd.apply(null,arguments);
-// 	// }
-// 	// catch (error) {
-// 	// 	console.log("args are", arguments);
-// 	// }
-//     var len = arguments.length,
-//         res = add(arguments[--len], arguments[--len]);
-//     // while (len--) {
-//     // 	res = add(res, arguments[len]);
-//     // }
-//     while (len--) res = add(res, arguments[len]);
-//     return res;
-// }
-
-
-
-// var v = [0, 1, 2, 3, 4, 5]
-console.log(u.add(v, 1))
-
+// console.log(u.add(1, [z,z]));
+// console.log(z);
+console.log(v);
+console.log([[0,1], [2,3], [4,5]]);
 
 function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
     while (MAX--) {
-        // _.toArray(w,w)
-        // u.add(w,w); // 12.8
-        // u.add(1, 1); // 20.1
-        // add(v,1); // 5.7
-        // u.add(v, 1); // 20.1
-        // u.add(v, v); // 20.1
-        // add(w, 1); // 20.1
-        // u.add(v, v); // 13.2
-        // u.add(v, v, v); // 21.4
-        // u.add(v,v,v,v); // 29.4
-        // u.add(v,v,v,v,v); // 37.9
-        u.add(v, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0); // 37.9
-        // u.add(w,w,w); // 23.0
-        // u.add(v,v,v,v); // 25.3
-        // console.log(u.add(v,v,v,v,v)); // 25.3
-        // u.asso(u.a_add, [w, w]) //8.5
-        // u.distribute(u.a_add, w, z) // 6.7
-        // u.distribute(u.a_add, w, w) // 6.7
-        // u.distribute(u.a_add, z, v) //3.3 with net
-        // u.distribute(u.a_add, z, v) //3.3 with net
-        // u.distributeBoth(u.a_add, z, u.distributeBoth(u.a_add, z2, w))
+    	// _.flattenDeep(v); //3.6
+    	// _.flattenDeep([v,v]);
     }
     var end = new Date().getTime();
     var time = end - start;
