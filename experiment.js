@@ -237,72 +237,89 @@ function c2() {
 // console.log("sum", sum(0, 1, 2, 3, 4, 5, v)); // 2.6
 
 
-// fast as x+y; no major delay from fn wrapping
+// // fast as x+y; no major delay from fn wrapping
+// function aadd(x, y) {
+//     return x + y;
+// };
+// // best: twice faster than R, 3 times faster than mathjs
+// // also can add diff dims like in R, whereas mathjs cant
+// function add(X, Y) {
+//     return u.distribute(aadd, X, Y);
+// };
+
+// // Do dis next: use while + push arr trick
+// // Do dis next: use while + push arr trick
+// // Do dis next: use while + push arr trick
+// // Do dis next: use while + push arr trick
+// // Do dis next: use while + push arr trick
+// function associate() {
+//     return u.distribute(add, v, v);
+// };
+
+// function ladd() {
+// 	// try {
+// 	// 	// return aadd(arguments[0], arguments[1]);
+// 	// 	return aadd.apply(null,arguments);
+// 	// }
+// 	// catch (error) {
+// 	// 	console.log("args are", arguments);
+// 	// }
+//     var len = arguments.length,
+//         res = add(arguments[--len], arguments[--len]);
+//     // while (len--) {
+//     // 	res = add(res, arguments[len]);
+//     // }
+//     while (len--) res = add(res, arguments[len]);
+//     return res;
+// }
+
+
 function aadd(x, y) {
     return x + y;
 };
-// best: twice faster than R, 3 times faster than mathjs
-// also can add diff dims like in R, whereas mathjs cant
-function add(X, Y) {
+
+function add2(X, Y) {
     return u.distribute(aadd, X, Y);
-};
+}
 
-// Do dis next: use while + push arr trick
-// Do dis next: use while + push arr trick
-// Do dis next: use while + push arr trick
-// Do dis next: use while + push arr trick
-// Do dis next: use while + push arr trick
-function associate() {
-    return u.distribute(add, v, v);
-};
-
-function ladd() {
-	// try {
-	// 	// return aadd(arguments[0], arguments[1]);
-	// 	return aadd.apply(null,arguments);
-	// }
-	// catch (error) {
-	// 	console.log("args are", arguments);
-	// }
+function add() {
     var len = arguments.length,
-        res = add(arguments[--len], arguments[--len]);
-    // while (len--) {
-    // 	res = add(res, arguments[len]);
-    // }
-    while (len--) res = add(res, arguments[len]);
+        res = add2(arguments[--len], arguments[--len]);
+    while (len--) res = add2(res, arguments[len]);
     return res;
+    // return u.asso(u.b_add, _.toArray(arguments))
 }
 
-function vadd(X, Y) {
-    var res = [],
-        len = X.length,
-        L = len - 1;
-    while (len--) res.push(aadd(X[L - len], Y[L-len]));
-    return res;
-}
+
+// function vadd(X, Y) {
+//     var res = [],
+//         len = X.length,
+//         L = len - 1;
+//     while (len--) res.push(aadd(X[L - len], Y[L-len]));
+//     return res;
+// }
 
 // var v = [0, 1, 2, 3, 4, 5];
 var v = [0,1,2,3,4,5]
-var x = v.slice(0);
-var y = v.slice(0);
-var z = v.slice(0);
+// var x = v.slice(0);
+// var y = v.slice(0);
+// var z = v.slice(0);
 // console.log(x);
-var w = [0,1];
+// var w = [0,1];
 // var z = [v, v];
 
 // function test
 
-console.log(ladd(v, v, v))
-console.log(m.add(v, v))
+// console.log(ladd(v, v, v))
+console.log(add(v, 1))
 
-console.log("dual", ladd(v,w))
-console.log("meh", u.distribute(u.b_add, v,v));
+// console.log("dual", ladd(v,w))
+// console.log("meh", u.distribute(u.b_add, v,v));
 // console.log(add(v,w));
 // console.log(add(v, _.range(3)));
 // console.log(add(_.range(3), v));
 // console.log(m.add(v, v));
 // var x = add(v, v);
-console.log("adder",_.add(1,1,1))
 function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
@@ -314,9 +331,10 @@ function benchmark() {
         // ladd(v,1); // 5.2
         // ladd(v,v); // 12.3 /6
         // u.distribute(u.b_add, v,v)
-        u.distribute(u.b_add, v,w)
+        // u.distribute(u.b_add, v,w)
         // u.distributeLeft(u.b_add, v,1)
-        // ladd(v,1,2); // 5.7
+        // 
+        add(v,1); // 5.7
         // ladd(x,x,x); //
         // ladd(x,y,z);
         // ladd(ladd(v,v),v); // triple target: 30s wtffff

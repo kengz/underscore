@@ -34,15 +34,15 @@ var u = {
         // trampolining for tail-call-optimization: prevent stack overflow
         function _asum(n, acc) {
             var len = n.length;
-            while (len--) acc += n[len] instanceof Array ? 
-            	_asum(n[len], 0) : n[len]
+            while (len--) acc += n[len] instanceof Array ?
+                _asum(n[len], 0) : n[len]
             return acc;
         };
         // actual function call; recurse if need to
         var total = 0,
             len = v.length;
-        while (len--) total += (v[len] instanceof Array ? 
-        	_asum(v[len], 0) : v[len])
+        while (len--) total += (v[len] instanceof Array ?
+            _asum(v[len], 0) : v[len])
         return total;
     },
 
@@ -73,7 +73,6 @@ var u = {
         step = step || 1;
         var length = Math.max(Math.ceil((stop - start) / step), 0) + 1;
         var range = Array(length);
-
         for (var idx = 0; idx < length; idx++, start += step) {
             range[idx] = start;
         }
@@ -82,40 +81,41 @@ var u = {
 
     // functional backend: distribute and associate
     // assuming Y is array (nested)
-    // (b_add, 1, v) 2.8 / 16.1
-    // (b_add, 1, [v,v]) 7.4 / 23.8
-    // (b_add, 1, [v,v,v]) 9.2 / 29.2
-    // (b_add, 1, [v,v,v,v]) 10.8 / 29.5
-    // (b_add, 1, [v,v,v,v,v,v,v]) 15.7 / 47.7
-    distributeRight: function(fnn, xx, YY) {
-        // trampolining for stackoverflow protection
-        function _distributeRight(fn, x, Y) {
-            var len = Y.length,
-                res = Array(len);
-            while (len--) res[len] = Y[len] instanceof Array ?
-                u.distributeRight(x, Y[len]) : fn(x, Y[len])
-            return res;
-        }
-        return _distributeRight(fnn, xx, YY)
+    // (a_add, 1, v) 2.8 / 16.1
+    // (a_add, 1, [v,v]) 7.4 / 23.8
+    // (a_add, 1, [v,v,v]) 9.2 / 29.2
+    // (a_add, 1, [v,v,v,v]) 10.8 / 29.5
+    // (a_add, 1, [v,v,v,v,v,v,v]) 15.7 / 47.7
+    distributeRight: function(fn, x, Y) {
+        var len = Y.length,
+            res = Array(len);
+        while (len--) res[len] = Y[len] instanceof Array ?
+            u.distributeRight(x, Y[len]) : fn(x, Y[len])
+        return res;
     },
     // assuming both arrays, repeat the shorter over the longer
     // call internally recur till can distribute right or just apply
     distributeBoth: function(fn, X, Y) {
-        var L, S;
-        if (X.length > Y.length) {
-            L = X;
-            S = Y;
-        } else {
-            L = Y;
-            S = X;
-        }
-        var Llen = L.length,
-            Slen = S.length,
-            res = Array(Llen);
-        while (Llen--) res[Llen] = u.distribute(fn, S[Llen % Slen], L[Llen]);
-        return res;
+        var Xlen = X.length,
+            Ylen = Y.length;
+        if (Xlen % Ylen == 0 || Ylen % Xlen == 0) {
+            var L, S;
+            if (Xlen > Ylen) {
+                L = X;
+                S = Y;
+            } else {
+                L = Y;
+                S = X;
+            }
+            var Llen = L.length,
+                Slen = S.length,
+                res = Array(Llen);
+            while (Llen--) res[Llen] = u.distribute(fn, S[Llen % Slen], L[Llen]);
+            return res;
+        } else throw "Cannot distribute arrays of different dimensions.";
     },
     // the true distribute method
+    // (u.a_add,w,w) 7.5 / 16.4
     distribute: function(fn, X, Y) {
         if (X instanceof Array)
             return Y instanceof Array ?
@@ -125,47 +125,114 @@ var u = {
                 u.distributeRight(fn, X, Y) : fn(X, Y);
     },
 
-    asso: function() {
-        var len = arguments.length,
-            fn = arguments[0],
-            res = arguments[--len];
-        while (--len) res = u.distribute(fn, res, arguments[len]);
+    // (u.a_add,w,w) 8.5 / 16.4
+    // rawArgs is the arguments from the higher function (can be arr too)
+    asso: function(fn, rawArgs) {
+        var len = rawArgs.length,
+            // optimize arg form baed on length or rawargs
+            args = len < 3 ? rawArgs : _.toArray(rawArgs),
+            res = u.distribute(fn, args[--len], args[--len]);
+        while (len--) res = u.distribute(fn, res, args[len]);
         return res;
     },
 
-    b_add: function(x, y) {
+
+    // the atomic add (for non-arrays) for the generic method.
+    a_add: function(x, y) {
         return x + y;
     },
-
+    // the generic add
+    // (v,1) 6.3 / 15.7
+    // (v,v) 10.1 / 16.4
+    // (v,v,v) 22.1 / 25.3
+    // (v,v,v,v) 29.4 / 33.9
+    // (v,v,v,v,v) 37.5 / 42.2
+    // (v,1,2,3,4,5,6,7,8,9,0) 17.3 / 76.8
     add: function() {
-
+        // sample call pattern: pass whole args
+        return u.asso(u.a_add, arguments);
     },
+
+    // atomic minus
+    a_subtract: function(x, y) {
+        return x - y;
+    },
+    subtract: function() {
+    	return u.asso(u.a_subtract, arguments);
+    }
+
+
+
+
+
+
+
 }
 
-console.log(u.asso(u.b_add, v, z, 10))
-    // console.log(u.distributeRight(u.b_add, 1, [v,v]));
-    // console.log(u.distributeBoth(u.b_add, 1, v));
-    // console.log(u.distributeBoth(u.b_add, z, v));
-    // console.log(u.distribute(u.b_add, v, v));
-    // console.log(u.distribute(u.b_add, z, v));
-    // console.log(u.distributeBoth(u.b_add, v, z));
-    // console.log(v);
-    // console.log(u.distribute(u.b_add, v, 1))
-    // console.log(u.distribute(u.b_add, v, v))
-    // console.log(!(6 % 3))
-var num = 1;
-// console.log(arr instanceof Array);
+
+// u.asso(u.add2, 1,2,3)
+
+
+
+// // fast as x+y; no major delay from fn wrapping
+// function aadd(x, y) {
+//     return x + y;
+// };
+// // best: twice faster than R, 3 times faster than mathjs
+// // also can add diff dims like in R, whereas mathjs cant
+// function add(X, Y) {
+//     return u.distribute(aadd, X, Y);
+// };
+
+
+// function ladd() {
+// 	// try {
+// 	// 	// return aadd(arguments[0], arguments[1]);
+// 	// 	return aadd.apply(null,arguments);
+// 	// }
+// 	// catch (error) {
+// 	// 	console.log("args are", arguments);
+// 	// }
+//     var len = arguments.length,
+//         res = add(arguments[--len], arguments[--len]);
+//     // while (len--) {
+//     // 	res = add(res, arguments[len]);
+//     // }
+//     while (len--) res = add(res, arguments[len]);
+//     return res;
+// }
+
+
+
+// var v = [0, 1, 2, 3, 4, 5]
+console.log(u.add(v, 1))
+
+
 function benchmark() {
-    var v = [];
     var MAX = 50000000;
     var start = new Date().getTime();
     while (MAX--) {
-        // u.asso(u.b_add, w, z)
-        // u.distributeRight(u.b_add, 1, v) // 2.7
-        u.distribute(u.b_add, w, z) // 6.7
-            // u.distribute(u.b_add, z, v) //3.3 with net
-            // u.distribute(u.b_add, z, v) //3.3 with net
-            // u.distributeBoth(u.b_add, z, u.distributeBoth(u.b_add, z2, w))
+        // _.toArray(w,w)
+        // u.add(w,w); // 12.8
+        // u.add(1, 1); // 20.1
+        // add(v,1); // 5.7
+        // u.add(v, 1); // 20.1
+        // u.add(v, v); // 20.1
+        // add(w, 1); // 20.1
+        // u.add(v, v); // 13.2
+        // u.add(v, v, v); // 21.4
+        // u.add(v,v,v,v); // 29.4
+        // u.add(v,v,v,v,v); // 37.9
+        u.add(v, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0); // 37.9
+        // u.add(w,w,w); // 23.0
+        // u.add(v,v,v,v); // 25.3
+        // console.log(u.add(v,v,v,v,v)); // 25.3
+        // u.asso(u.a_add, [w, w]) //8.5
+        // u.distribute(u.a_add, w, z) // 6.7
+        // u.distribute(u.a_add, w, w) // 6.7
+        // u.distribute(u.a_add, z, v) //3.3 with net
+        // u.distribute(u.a_add, z, v) //3.3 with net
+        // u.distributeBoth(u.a_add, z, u.distributeBoth(u.a_add, z2, w))
     }
     var end = new Date().getTime();
     var time = end - start;
