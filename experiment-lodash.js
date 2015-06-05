@@ -47,6 +47,14 @@ var u = {
             u.distributeRight(fn, x, Y[len]) : fn(x, Y[len])
         return res;
     },
+    // for function that must strictly distributeLeft
+    distributeLeft: function(fn, X, y) {
+        var len = X.length,
+            res = Array(len);
+        while (len--) res[len] = X[len] instanceof Array ?
+            u.distributeLeft(fn, X[len], y) : fn(X[len], y)
+        return res;
+    },
 
     // distribute tensor X over Y: pair up terms at the same depth at same index position; repeat if one is shorter at a level.
     // assuming both arrays, repeat the shorter over the longer
@@ -87,21 +95,29 @@ var u = {
     // Associate: assuming arguments are non-arrays.
     // argObj is the arguments from the higher function (can be arr too)
     asso: function(fn, argObj) {
+        // var len = argObj.length,
+        //     // optimize arg form baed on length or argObj
+        //     args = len < 3 ? argObj : _.toArray(argObj),
+        //     res = fn(args[--len], args[--len]);
+        // while (len--) res = fn(res, args[len]);
+        // return res;
         var len = argObj.length,
+            i = 0;
             // optimize arg form baed on length or argObj
             args = len < 3 ? argObj : _.toArray(argObj),
-            res = fn(args[--len], args[--len]);
-        while (len--) res = fn(res, args[len]);
+            res = fn(args[i++], args[i++]);
+        while (i < len) res = fn(res, args[i++]);
         return res;
     },
 
     // associate with distribute. Useful, fast shortcut
     assodist: function(fn, argObj) {
         var len = argObj.length,
+            i = 0;
             // optimize arg form baed on length or argObj
             args = len < 3 ? argObj : _.toArray(argObj),
-            res = u.distribute(fn, args[--len], args[--len]);
-        while (len--) res = u.distribute(fn, res, args[len]);
+            res = u.distribute(fn, args[i++], args[i++]);
+        while (i < len) res = u.distribute(fn, res, args[i++]);
         return res;
     },
 
@@ -313,12 +329,15 @@ var u = {
         return _.zip.apply(null, M);
     },
 
-    // transpose
-    // cbind
-
     // change terminologies: V vector, M matrix, T tensor
 
+    a_log: function(x, base) {
+        return base == undefined ? Math.log(x) : Math.log(x) / Math.log(base);
+    },
 
+    log: function(T, base) {
+        return u.distributeLeft(u.a_log, T, base);
+    },
 
     // More functions
 
@@ -359,12 +378,14 @@ console.log(mm)
 // console.log(u.cbind(mm,[1,2,3]))
 console.log(u.transpose(mm));
     // u.add(1,v)
-
+console.log(u.add(1,mm))
+// console.log(u.a_log(0))
+console.log(u.log(v))
 
 
 // var vv = _.range(24);
 function benchmark() {
-    var MAX = 5000000;
+    var MAX = 50000000;
     var start = new Date().getTime();
     // mydistright(u.a_add, 1, m);
     while (MAX--) {
