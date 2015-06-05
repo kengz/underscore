@@ -214,7 +214,6 @@ var u = {
     // Basic Tensor functions //
     ////////////////////////////
 
-
     // get the depth of array M; assuming homogen tensor
     depth: function(M) {
         var m = M,
@@ -294,7 +293,30 @@ var u = {
             tensor = _.chunk(tensor, dimArr[len]);
         return tensor;
     },
+    // return a copy with sub rows from matrix M
+    rbind: function(M, indArr) {
+        return _.map(indArr, function(i) {
+            return _.cloneDeep(M[i])
+        });
+    },
+    // return a copy with sub rows from matrix M 
+    cbind: function(M, indArr) {
+        return _.map(M, function(row) {
+            return _.map(indArr, function(i) {
+                return row[i];
+            });
+        });
+    },
 
+    // swap between rows and columns. Need be rectangular
+    transpose: function(M) {
+        return _.zip.apply(null, M);
+    },
+
+    // transpose
+    // cbind
+
+    // change terminologies: V vector, M matrix, T tensor
 
 
 
@@ -329,16 +351,26 @@ var u = {
 }
 
 // push to stack, then reshape
-// u.add(1,v)
+var mm = [v, v, v];
+// var qq = mm.slice(0);
+var qq = _.cloneDeep(mm);
+qq[0][0] = -1;
+console.log(mm)
+// console.log(u.cbind(mm,[1,2,3]))
+console.log(u.transpose(mm));
+    // u.add(1,v)
 
 
 
 // var vv = _.range(24);
 function benchmark() {
-    var MAX = 50000000;
+    var MAX = 5000000;
     var start = new Date().getTime();
     // mydistright(u.a_add, 1, m);
     while (MAX--) {
+        // u.cbind(mm,[1,2,3])
+        // v.slice(0);
+        // _.cloneDeep(v)
         // m.sum(v)
         // u.prod(vv)
         // u.c(1,1)
