@@ -43,14 +43,19 @@ var u = {
     distributeRight: function(fn, x, Y) {
         var len = Y.length,
             res = Array(len);
+        // guard
+        // if (!len) return fn(x,Y);
         while (len--) res[len] = Y[len] instanceof Array ?
             u.distributeRight(fn, x, Y[len]) : fn(x, Y[len])
         return res;
     },
     // for function that must strictly distributeLeft
+    // Used as default in distribute now
     distributeLeft: function(fn, X, y) {
         var len = X.length,
             res = Array(len);
+        // guard
+        // if (!len) return fn(X,y); 
         while (len--) res[len] = X[len] instanceof Array ?
             u.distributeLeft(fn, X[len], y) : fn(X[len], y)
         return res;
@@ -85,7 +90,7 @@ var u = {
     distribute: function(fn, X, Y) {
         if (X instanceof Array)
             return Y instanceof Array ?
-                u.distributeBoth(fn, X, Y) : u.distributeRight(fn, Y, X);
+                u.distributeBoth(fn, X, Y) : u.distributeLeft(fn, X, Y);
         else
             return Y instanceof Array ?
                 u.distributeRight(fn, X, Y) : fn(X, Y);
@@ -267,6 +272,29 @@ var u = {
         return flat;
     },
 
+    isInteger: function(x) {
+        return x == Math.floor(x);
+    },
+
+    isDouble: function(x) {
+        return x != Math.floor(x);
+    },
+
+    isPositive: function(x) {
+        return x > 0;
+    },
+
+
+    // Need to generate N-nary numbers
+    subset: function() {
+
+    },
+
+    Nnary: function(k) {
+
+    },
+
+
 
     ///////////////////////////
     // Tensor transformation //
@@ -336,7 +364,13 @@ var u = {
     },
 
     log: function(T, base) {
-        return u.distributeLeft(u.a_log, T, base);
+        return u.distribute(u.a_log, T, base);
+    },
+
+    a_pow: Math.pow,
+
+    pow: function(T, n) {
+        return u.distribute(u.a_pow, T, n);
     },
 
     // More functions
@@ -378,9 +412,12 @@ console.log(mm)
 // console.log(u.cbind(mm,[1,2,3]))
 console.log(u.transpose(mm));
     // u.add(1,v)
-console.log(u.add(1,mm))
+// console.log(u.add(1,mm))
 // console.log(u.a_log(0))
 console.log(u.log(v))
+console.log(u.log(10))
+
+console.log(u.add('1', v))
 
 
 // var vv = _.range(24);
@@ -389,6 +426,8 @@ function benchmark() {
     var start = new Date().getTime();
     // mydistright(u.a_add, 1, m);
     while (MAX--) {
+        // Math.round(1.1)
+        Math.floor(1.1)
         // u.cbind(mm,[1,2,3])
         // v.slice(0);
         // _.cloneDeep(v)
