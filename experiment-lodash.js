@@ -108,8 +108,8 @@ var u = {
         // return res;
         var len = argObj.length,
             i = 0;
-            // optimize arg form baed on length or argObj
-            args = len < 3 ? argObj : _.toArray(argObj),
+        // optimize arg form baed on length or argObj
+        args = len < 3 ? argObj : _.toArray(argObj),
             res = fn(args[i++], args[i++]);
         while (i < len) res = fn(res, args[i++]);
         return res;
@@ -119,8 +119,8 @@ var u = {
     assodist: function(fn, argObj) {
         var len = argObj.length,
             i = 0;
-            // optimize arg form baed on length or argObj
-            args = len < 3 ? argObj : _.toArray(argObj),
+        // optimize arg form baed on length or argObj
+        args = len < 3 ? argObj : _.toArray(argObj),
             res = u.distribute(fn, args[i++], args[i++]);
         while (i < len) res = u.distribute(fn, res, args[i++]);
         return res;
@@ -272,26 +272,32 @@ var u = {
         return flat;
     },
 
-    isInteger: function(x) {
-        return x == Math.floor(x);
-    },
-
-    isDouble: function(x) {
-        return x != Math.floor(x);
-    },
-
-    isPositive: function(x) {
-        return x > 0;
-    },
-
 
     // Need to generate N-nary numbers
     subset: function() {
 
     },
 
-    Nnary: function(k) {
+    // generate base-nary number of length
+    genAry: function(length, base) {
+        var range = _.map(_.range(base), String);
+        var tmp = range,
+            it = length;
+        while (--it) {
+            tmp = _.flattenDeep(_.map(range, function(x) {
+                return u.distributeRight(u.a_add, x, tmp)
+            }));
+        }
+        return tmp;
+    },
 
+    // convert array of strings to array of array of numbers
+    toNumArr: function(sarr) {
+        return _.map(sarr, function(str) {
+            return _.map(str.split(''), function(x) {
+                return parseInt(x);
+            })
+        })
     },
 
 
@@ -352,12 +358,37 @@ var u = {
         });
     },
 
+    // make rectangular
+    // make rectangular
+    // make rectangular
+    // make rectangular
+
     // swap between rows and columns. Need be rectangular
     transpose: function(M) {
         return _.zip.apply(null, M);
     },
 
     // change terminologies: V vector, M matrix, T tensor
+
+
+
+
+    ////////////////////
+    // More functions //
+    ////////////////////
+
+    isInteger: function(x) {
+        return x == Math.floor(x);
+    },
+
+    isDouble: function(x) {
+        return x != Math.floor(x);
+    },
+
+    isPositive: function(x) {
+        return x > 0;
+    },
+
 
     a_log: function(x, base) {
         return base == undefined ? Math.log(x) : Math.log(x) / Math.log(base);
@@ -405,19 +436,44 @@ var u = {
 
 // push to stack, then reshape
 var mm = [v, v, v];
-// var qq = mm.slice(0);
-var qq = _.cloneDeep(mm);
-qq[0][0] = -1;
-console.log(mm)
-// console.log(u.cbind(mm,[1,2,3]))
-console.log(u.transpose(mm));
-    // u.add(1,v)
-// console.log(u.add(1,mm))
-// console.log(u.a_log(0))
-console.log(u.log(v))
-console.log(u.log(10))
+console.log(v);
+// console.log('ll', _.map([0,1], u.c.bind(null, 'a')))
 
-console.log(u.add('1', v))
+var wee = u.distributeRight(u.a_add, 'a', v)
+console.log(wee);
+var b = ['0', '1', '2']
+    // var c = _.map(b, u.distributeLeft.bind(u.a_add, b));
+var c = _.map(b, function(x) {
+    return u.distributeRight(u.a_add, x, b)
+});
+console.log(c);
+
+// == gen permutations without replacement
+// gen all permutations & gen all subsets
+var genAry = function(length, base) {
+    var range = _.map(_.range(base), String);
+    var tmp = range,
+        it = length;
+    while (--it) {
+        tmp = _.flattenDeep(_.map(range, function(x) {
+            return u.distributeRight(u.a_add, x, tmp)
+        }));
+    }
+    return tmp;
+}
+
+var s = genAry(3, 3);
+
+var toNumArr = function(sarr) {
+    return _.map(sarr, function(str) {
+        return _.map(str.split(''), function(x) {
+            return parseInt(x);
+        })
+    })
+}
+console.log(toNumArr(s));
+
+
 
 
 // var vv = _.range(24);
@@ -426,8 +482,6 @@ function benchmark() {
     var start = new Date().getTime();
     // mydistright(u.a_add, 1, m);
     while (MAX--) {
-        // Math.round(1.1)
-        Math.floor(1.1)
         // u.cbind(mm,[1,2,3])
         // v.slice(0);
         // _.cloneDeep(v)
