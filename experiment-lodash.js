@@ -294,6 +294,26 @@ var u = {
         })
     },
 
+    // generate all subset indices up to n-cardinality
+    subset: function(n) {
+        var range = _.map(_.range(n), String),
+            res = [],
+            count = n;
+            res.push(range); //init
+        while (--count) {
+            // the last batch to expand on
+            var last = _.last(res);
+            var batch = [];
+            _.each(last, function(k) {
+                for (var i = Number(_.last(k)) + 1; i < n; i++)
+                    batch.push(k + i);
+            })
+            res.push(batch);
+        }
+        return res;
+    },
+
+
     // generate all permutation indices up to len n
     perm: function(n) {
         var range = _.range(n),
@@ -301,13 +321,13 @@ var u = {
             diffs, k = 0;
         while (k != -1) {
             res.push(range.slice(0));
-            diffs = stairs(range),
+            diffs = u.stairs(range),
                 k = _.findLastIndex(diffs, u.isPositive);
             var l = _.findLastIndex(range, function(t) {
                 return t > range[k];
             });
-            swap(range, k, l);
-            reverse(range, k + 1, null);
+            u.swap(range, k, l);
+            u.reverse(range, k + 1, null);
         }
         return res;
     },
@@ -363,7 +383,7 @@ var u = {
         var j = l == undefined ? arr.length - 1 : l;
         var mid = Math.ceil((i + j) / 2);
         while (i < mid)
-            swap(arr, i++, j--);
+            u.swap(arr, i++, j--);
         return arr;
     },
 
@@ -374,6 +394,10 @@ var u = {
         while (dlen--)
             st[dlen] = arr[dlen + 1] - arr[dlen];
         return st;
+    },
+
+    norm: function(arr) {
+
     },
 
 
@@ -495,8 +519,9 @@ var u = {
     // remove all recursions
 }
 
-
-
+console.log(u.subset(5));
+// console.log(_.map(u.subset(3), u.toNumArr));
+// console.log(u.perm(3));
 
 
 // var vv = _.range(24);
@@ -505,15 +530,9 @@ function benchmark() {
     var start = new Date().getTime();
     // mydistright(u.a_add, 1, m);
     while (MAX--) {
-        // genAry(3, 3)
-        // u.cbind(mm,[1,2,3])
-        // v.slice(0);
-        // _.cloneDeep(v)
-        // m.sum(v)
-        // u.prod(vv)
-        // u.c(1,1)
-        // v instanceof Array;
-        // _.isArray(v)
+        // '1'<'2'
+        // 'loremipsum'.split('')
+
     }
     var end = new Date().getTime();
     var time = end - start;
