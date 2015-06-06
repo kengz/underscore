@@ -333,6 +333,25 @@ var u = {
     },
 
 
+    factorial: function(n) {
+        var count = n, res = n;
+        while(--count)
+            res *= count;
+        return res;
+    },
+
+    permutation: function(n, r) {
+        var count = r, term = n; res = n;
+        while(--count)
+            res *= --term;
+        return res;
+    },
+
+    combination: function(n, r) {
+        return u.permutation(n,r)/u.factorial(r);
+    },
+
+
 
 
     ////////////////////
@@ -519,7 +538,10 @@ var u = {
     // remove all recursions
 }
 
-console.log(u.subset(5));
+// console.log(u.subset(5));
+console.log(u.factorial(3));
+console.log(u.permutation(5,2));
+console.log(u.combination(5,2));
 // console.log(_.map(u.subset(3), u.toNumArr));
 // console.log(u.perm(3));
 
