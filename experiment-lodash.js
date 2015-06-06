@@ -272,12 +272,6 @@ var u = {
         return flat;
     },
 
-
-    // Need to generate N-nary numbers
-    subset: function() {
-
-    },
-
     // generate base-nary number of length
     genAry: function(length, base) {
         var range = _.map(_.range(base), String);
@@ -300,18 +294,33 @@ var u = {
         })
     },
 
+    // generate all permutation indices up to len n
+    perm: function(n) {
+        var range = _.range(n),
+            res = [],
+            diffs, k = 0;
+        while (k != -1) {
+            res.push(range.slice(0));
+            diffs = stairs(range),
+                k = _.findLastIndex(diffs, u.isPositive);
+            var l = _.findLastIndex(range, function(t) {
+                return t > range[k];
+            });
+            swap(range, k, l);
+            reverse(range, k + 1, null);
+        }
+        return res;
+    },
 
 
-    ///////////////////////////
-    // Tensor transformation //
-    ///////////////////////////
 
-    // lodash methods
-    // _.chunk
-    // _.flatten, _.flattenDeep
+
+    ////////////////////
+    // Array creation //
+    ////////////////////
+
     // union, intersection, difference, xor
 
-    // Array creation
 
     // rewrite using lodash range +1
     // like _.range, but _.seq(N) = _.range(N)+1
@@ -334,6 +343,58 @@ var u = {
     numeric: function(N, val) {
         return val == undefined ? _.fill(Array(N), 0) : _.fill(Array(N), val);
     },
+
+
+    ///////////////
+    // Array ops //
+    ///////////////
+
+    // swap at index i, j
+    // mutates the array
+    swap: function(arr, i, j) {
+        arr[i] = arr.splice(j, 1, arr[i])[0];
+        return arr;
+    },
+
+    // reverse arr from index k to l inclusive
+    // mutates the array
+    reverse: function(arr, k, l) {
+        var i = k == undefined ? 0 : k;
+        var j = l == undefined ? arr.length - 1 : l;
+        var mid = Math.ceil((i + j) / 2);
+        while (i < mid)
+            swap(arr, i++, j--);
+        return arr;
+    },
+
+    // the stairs: adjacent difference in arr
+    stairs: function(arr) {
+        var dlen = arr.length - 1,
+            st = Array(dlen);
+        while (dlen--)
+            st[dlen] = arr[dlen + 1] - arr[dlen];
+        return st;
+    },
+
+
+
+
+
+    ///////////////////////////
+    // Tensor transformation //
+    ///////////////////////////
+
+    // lodash methods
+    // _.chunk
+    // _.flatten, _.flattenDeep
+
+
+    // fillMat
+    // fillMat
+    // fillMat
+    // fillMat
+    // fillMat
+    // fillMat
 
     // use chunk from inside to outside:
     reshape: function(arr, dimArr) {
@@ -434,54 +495,17 @@ var u = {
     // remove all recursions
 }
 
-// push to stack, then reshape
-var mm = [v, v, v];
-console.log(v);
-// console.log('ll', _.map([0,1], u.c.bind(null, 'a')))
-
-var wee = u.distributeRight(u.a_add, 'a', v)
-console.log(wee);
-var b = ['0', '1', '2']
-    // var c = _.map(b, u.distributeLeft.bind(u.a_add, b));
-var c = _.map(b, function(x) {
-    return u.distributeRight(u.a_add, x, b)
-});
-console.log(c);
-
-// == gen permutations without replacement
-// gen all permutations & gen all subsets
-var genAry = function(length, base) {
-    var range = _.map(_.range(base), String);
-    var tmp = range,
-        it = length;
-    while (--it) {
-        tmp = _.flattenDeep(_.map(range, function(x) {
-            return u.distributeRight(u.a_add, x, tmp)
-        }));
-    }
-    return tmp;
-}
-
-var s = genAry(3, 3);
-
-var toNumArr = function(sarr) {
-    return _.map(sarr, function(str) {
-        return _.map(str.split(''), function(x) {
-            return parseInt(x);
-        })
-    })
-}
-console.log(toNumArr(s));
 
 
 
 
 // var vv = _.range(24);
 function benchmark() {
-    var MAX = 50000000;
+    var MAX = 5000000;
     var start = new Date().getTime();
     // mydistright(u.a_add, 1, m);
     while (MAX--) {
+        // genAry(3, 3)
         // u.cbind(mm,[1,2,3])
         // v.slice(0);
         // _.cloneDeep(v)
