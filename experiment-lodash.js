@@ -240,9 +240,188 @@ var _m = {
     rescale: function(v) {
         return _m.normalize(v, 1);
     },
+    // return the dot product of two vectors
+    dot: function(X, Y) {
+        return _.sum(_m.multiply(X, Y));
+    },
+
 
     // abs trigs hyperbolictrigs
     // Implement all? to use directly on tensors
+
+    // check if x is an integer
+    isInteger: function(x) {
+        return x == Math.floor(x);
+    },
+    // check if x is a double
+    isDouble: function(x) {
+        return x != Math.floor(x);
+    },
+    // check if x is positive
+    isPositive: function(x) {
+        return x > 0;
+    },
+
+
+    //////////////////////////
+    // Handy analytical ops //
+    //////////////////////////
+
+    // the stairs: adjacent difference in arr
+    stairs: function(arr) {
+        var dlen = arr.length - 1,
+            st = Array(dlen);
+        while (dlen--)
+            st[dlen] = arr[dlen + 1] - arr[dlen];
+        return st;
+    },
+
+
+
+    ///////////////////////////////
+    // Subsets and combinatorics //
+    ///////////////////////////////
+
+    // generate n-nary number of length
+    genAry: function(length, n) {
+        var range = _.map(_.range(n), String);
+        var tmp = range,
+            it = length;
+        while (--it) {
+            tmp = _.flattenDeep(_.map(range, function(x) {
+                return _m.distributeRight(_m.a_add, x, tmp)
+            }));
+        }
+        return tmp;
+    },
+
+    // convert array of strings to array of array of numbers
+    toNumArr: function(sarr) {
+        return _.map(sarr, function(str) {
+            return _.map(str.split(''), function(x) {
+                return parseInt(x);
+            })
+        })
+    },
+
+    // generate all permutation subset indices of n items
+    pSubset: function(n) {
+        var range = _.map(_.range(n), String),
+            res = [],
+            count = n;
+        res.push(range); //init
+        while (--count) {
+            // the last batch to expand on
+            var last = _.last(res);
+            var batch = [];
+            _.each(last, function(k) {
+                for (var i = 0; i < n; i++)
+                    if (!_.contains(k.split(''), String(i)))
+                        batch.push(k + i);
+            })
+            res.push(batch);
+        }
+        return res;
+    },
+
+    // generate all subset indices of n items
+    subset: function(n) {
+        var range = _.map(_.range(n), String),
+            res = [],
+            count = n;
+        res.push(range); //init
+        while (--count) {
+            // the last batch to expand on
+            var last = _.last(res);
+            var batch = [];
+            _.each(last, function(k) {
+                for (var i = Number(_.last(k)) + 1; i < n; i++)
+                    batch.push(k + i);
+            })
+            res.push(batch);
+        }
+        return res;
+    },
+
+    // generate the indices of n-perm-r
+    permList: function(n, r) {
+        return _m.toNumArr(_m.pSubset(n)[r - 1]);
+    },
+    // generate the indices of n-choose-r
+    combList: function(n, r) {
+        return _m.toNumArr(_m.subset(n)[r - 1]);
+    },
+
+    // generate all permutations of n items
+    permute: function(n) {
+        var range = _.range(n),
+            res = [],
+            diffs, k = 0;
+        while (k != -1) {
+            res.push(range.slice(0));
+            diffs = _m.stairs(range),
+                k = _.findLastIndex(diffs, _m.isPositive);
+            var l = _.findLastIndex(range, function(t) {
+                return t > range[k];
+            });
+            _m.swap(range, k, l);
+            _m.reverse(range, k + 1, null);
+        }
+        return res;
+    },
+
+    // return factorial(n)
+    // alias: fact
+    factorial: function(n) {
+        var count = n,
+            res = n;
+        while (--count)
+            res *= count;
+        return res;
+    },
+    // return n-permute-r
+    // alias: perm
+    permutation: function(n, r) {
+        var count = r,
+            term = n;
+        res = n;
+        while (--count)
+            res *= --term;
+        return res;
+    },
+    // return n-choose-r
+    // alias: comb
+    combination: function(n, r) {
+        return _m.permutation(n, r) / _m.factorial(r);
+    },
+
+
+
+    ////////////////////
+    // Array creation //
+    ////////////////////
+
+    // union, intersection, difference, xor
+
+    // seq from R: like _.range, but starts with 1 by default
+    seq: function(start, stop, step) {
+        if (stop == null) {
+            stop = start || 1;
+            start = 1;
+        }
+        step = step || 1;
+        var length = Math.max(Math.ceil((stop - start) / step), 0) + 1;
+        var range = Array(length);
+        for (var idx = 0; idx < length; idx++, start += step) {
+            range[idx] = start;
+        }
+        return range;
+    },
+
+    // return an array of length N initialized to val (default to 0)
+    numeric: function(N, val) {
+        return val == undefined ? _.fill(Array(N), 0) : _.fill(Array(N), val);
+    },
 
 
     ///////////////////////
@@ -288,152 +467,32 @@ var _m = {
         return flat;
     },
 
-    // generate n-nary number of length
-    genAry: function(length, n) {
-        var range = _.map(_.range(n), String);
-        var tmp = range,
-            it = length;
-        while (--it) {
-            tmp = _.flattenDeep(_.map(range, function(x) {
-                return _m.distributeRight(_m.a_add, x, tmp)
-            }));
+
+    // get the maximum length of the deepest array in tensor T.
+    maxDeepestLength: function(T) {
+        var stack = [],
+            sizes = [];
+        stack.push(T);
+        while (stack.length) {
+            var curr = stack.pop(),
+                len = curr.length;
+            if (_m.isFlat(curr))
+                sizes.push(len);
+            else
+                while (len--)
+                    stack.push(curr[len]);
         }
-        return tmp;
-    },
-
-    // convert array of strings to array of array of numbers
-    toNumArr: function(sarr) {
-        return _.map(sarr, function(str) {
-            return _.map(str.split(''), function(x) {
-                return parseInt(x);
-            })
-        })
-    },
-
-    // generate all subset indices of n items
-    subset: function(n) {
-        var range = _.map(_.range(n), String),
-            res = [],
-            count = n;
-        res.push(range); //init
-        while (--count) {
-            // the last batch to expand on
-            var last = _.last(res);
-            var batch = [];
-            _.each(last, function(k) {
-                for (var i = Number(_.last(k)) + 1; i < n; i++)
-                    batch.push(k + i);
-            })
-            res.push(batch);
-        }
-        return res;
-    },
-
-    // generate all permutation subset indices of n items
-    pSubset: function(n) {
-        var range = _.map(_.range(n), String),
-            res = [],
-            count = n;
-        res.push(range); //init
-        while (--count) {
-            // the last batch to expand on
-            var last = _.last(res);
-            var batch = [];
-            _.each(last, function(k) {
-                for (var i = 0; i < n; i++)
-                    if (!_.contains(k.split(''), String(i)))
-                        batch.push(k + i);
-            })
-            res.push(batch);
-        }
-        return res;
-    },
-    // generate all permutations of n items
-    permute: function(n) {
-        var range = _.range(n),
-            res = [],
-            diffs, k = 0;
-        while (k != -1) {
-            res.push(range.slice(0));
-            diffs = _m.stairs(range),
-                k = _.findLastIndex(diffs, _m.isPositive);
-            var l = _.findLastIndex(range, function(t) {
-                return t > range[k];
-            });
-            _m.swap(range, k, l);
-            _m.reverse(range, k + 1, null);
-        }
-        return res;
-    },
-    // generate the indices of n-perm-r
-    permList: function(n, r) {
-        return _m.toNumArr(_m.pSubset(n)[r - 1]);
-    },
-    // generate the indices of n-choose-r
-    combList: function(n, r) {
-        return _m.toNumArr(_m.subset(n)[r - 1]);
-    },
-
-    // return factorial(n)
-    // alias: fact
-    factorial: function(n) {
-        var count = n,
-            res = n;
-        while (--count)
-            res *= count;
-        return res;
-    },
-    // return n-permute-r
-    // alias: perm
-    permutation: function(n, r) {
-        var count = r,
-            term = n;
-        res = n;
-        while (--count)
-            res *= --term;
-        return res;
-    },
-    // return n-choose-r
-    // alias: comb
-    combination: function(n, r) {
-        return _m.permutation(n, r) / _m.factorial(r);
+        return _.max(sizes);
     },
 
 
+    ///////////////////////////
+    // Tensor transformation //
+    ///////////////////////////
 
-    ////////////////////
-    // Array creation //
-    ////////////////////
-
-    // union, intersection, difference, xor
-
-
-    // rewrite using lodash range +1
-    // like _.range, but _.seq(N) = _.range(N)+1
-    // (10) 3.0 / 5000 years
-    seq: function(start, stop, step) {
-        if (stop == null) {
-            stop = start || 1;
-            start = 1;
-        }
-        step = step || 1;
-        var length = Math.max(Math.ceil((stop - start) / step), 0) + 1;
-        var range = Array(length);
-        for (var idx = 0; idx < length; idx++, start += step) {
-            range[idx] = start;
-        }
-        return range;
-    },
-
-    // return an array of length N initialized to val (0 if not specified)
-    numeric: function(N, val) {
-        return val == undefined ? _.fill(Array(N), 0) : _.fill(Array(N), val);
-    },
-
-
-    ///////////////
-    // Array ops //
-    ///////////////
+    // lodash methods
+    // _.chunk
+    // _.flatten, _.flattenDeep
 
     // swap at index i, j
     // mutates the array
@@ -453,43 +512,6 @@ var _m = {
         return arr;
     },
 
-    // the stairs: adjacent difference in arr
-    stairs: function(arr) {
-        var dlen = arr.length - 1,
-            st = Array(dlen);
-        while (dlen--)
-            st[dlen] = arr[dlen + 1] - arr[dlen];
-        return st;
-    },
-
-
-
-
-    ///////////////////////////
-    // Tensor transformation //
-    ///////////////////////////
-
-    // lodash methods
-    // _.chunk
-    // _.flatten, _.flattenDeep
-
-
-    // get the maximum length of the deepest array in tensor T.
-    maxDeepestLength: function(T) {
-        var stack = [],
-            sizes = [];
-        stack.push(T);
-        while (stack.length) {
-            var curr = stack.pop(),
-                len = curr.length;
-            if (_m.isFlat(curr))
-                sizes.push(len);
-            else
-                while (len--)
-                    stack.push(curr[len]);
-        }
-        return _.max(sizes);
-    },
     // extend an array till toLen, filled with val defaulted to 0.
     extendArray: function(arr, val, toLen) {
         var lendiff = toLen - arr.length,
@@ -499,6 +521,24 @@ var _m = {
         while (lendiff--)
             arr.push(repVal);
         return arr;
+    },
+    // return a copy with sub rows from matrix M
+    rbind: function(M, indArr) {
+        return _.map(indArr, function(i) {
+            return _.cloneDeep(M[i])
+        });
+    },
+    // return a copy with sub rows from matrix M 
+    cbind: function(M, indArr) {
+        return _.map(M, function(row) {
+            return _.map(indArr, function(i) {
+                return row[i];
+            });
+        });
+    },
+    // transpose a matrix
+    transpose: function(M) {
+        return _.zip.apply(null, M);
     },
     // make a tensor rectangular by filling with val, defaulted to 0.
     // mutates the tensor.
@@ -517,8 +557,6 @@ var _m = {
         }
         return T;
     },
-
-
     // use chunk from inside to outside:
     reshape: function(arr, dimArr) {
         var tensor = arr;
@@ -526,55 +564,6 @@ var _m = {
         while (--len)
             tensor = _.chunk(tensor, dimArr[len]);
         return tensor;
-    },
-    // return a copy with sub rows from matrix M
-    rbind: function(M, indArr) {
-        return _.map(indArr, function(i) {
-            return _.cloneDeep(M[i])
-        });
-    },
-    // return a copy with sub rows from matrix M 
-    cbind: function(M, indArr) {
-        return _.map(M, function(row) {
-            return _.map(indArr, function(i) {
-                return row[i];
-            });
-        });
-    },
-
-
-    // swap between rows and columns. Need be rectangular
-    transpose: function(M) {
-        return _.zip.apply(null, M);
-    },
-
-    // change terminologies: V vector, M matrix, T tensor
-
-
-
-
-    ////////////////////
-    // More functions //
-    ////////////////////
-
-    isInteger: function(x) {
-        return x == Math.floor(x);
-    },
-
-    isDouble: function(x) {
-        return x != Math.floor(x);
-    },
-
-    isPositive: function(x) {
-        return x > 0;
-    },
-
-
-    // More functions
-
-    // (v,v) 10.9
-    dot: function(X, Y) {
-        return _.sum(_m.multiply(X, Y));
     },
 
 
@@ -592,11 +581,6 @@ var mm = [
     [3, 4, 2]
 ]
 
-// console.log(_m.pSubset(3));
-// console.log(_m.subset(3));
-console.log(_m.permute(3));
-console.log(_m.permList(3, 2));
-console.log(_m.combList(3, 2));
 
 // var vv = _.range(24);
 function benchmark() {
@@ -604,10 +588,6 @@ function benchmark() {
     var start = new Date().getTime();
     // mydistright(_m.a_add, 1, m);
     while (MAX--) {
-        // _m.prod(mm)
-        // _m.add(1,1)
-        // '1'<'2'
-        // 'loremipsum'.split('')
 
     }
     var end = new Date().getTime();
