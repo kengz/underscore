@@ -27,43 +27,35 @@ var z2 = [0, 1];
 ////////////////
 // Module DEF //
 ////////////////
-var u = {
+var _m = {
 
     //////////////////////////////
     // Function builder backend //
     //////////////////////////////
 
-    // Helper: distribute scalar x over tensor Y
-    // assuming Y is array (nested)
-    // (a_add, 1, v) 2.8 / 16.1
-    // (a_add, 1, [v,v]) 7.4 / 23.8
-    // (a_add, 1, [v,v,v]) 9.2 / 29.2
-    // (a_add, 1, [v,v,v,v]) 10.8 / 29.5
-    // (a_add, 1, [v,v,v,v,v,v,v]) 15.7 / 47.7
+    // We employ clearer terminologies to distinguish the "depth" or the "dimension" of the objects. In general, we call generic array of depth-N a "N-tensor" or "rank-N tensor". A scalar is "0-tensor"; a simple array/vector is "1-tensor", matrix (array of arrays) is "2-tensor", and so on.
+    // A generic function that operates over tensor is built from an atomic function fn taking two scalar arguments. 
+    // Applying a function into depths of tensor is done via distribution, and evaluating a multi-argument function is done via associativity.
+
+    // Distribute fn with left scalar x over right tensor Y.
     distributeRight: function(fn, x, Y) {
         var len = Y.length,
             res = Array(len);
-        // guard
-        // if (!len) return fn(x,Y);
         while (len--) res[len] = Y[len] instanceof Array ?
-            u.distributeRight(fn, x, Y[len]) : fn(x, Y[len])
+            _m.distributeRight(fn, x, Y[len]) : fn(x, Y[len])
         return res;
     },
-    // for function that must strictly distributeLeft
-    // Used as default in distribute now
+    // Distribute fn with left tensor X over right scalar y.
     distributeLeft: function(fn, X, y) {
         var len = X.length,
             res = Array(len);
-        // guard
-        // if (!len) return fn(X,y); 
         while (len--) res[len] = X[len] instanceof Array ?
-            u.distributeLeft(fn, X[len], y) : fn(X[len], y)
+            _m.distributeLeft(fn, X[len], y) : fn(X[len], y)
         return res;
     },
 
-    // distribute tensor X over Y: pair up terms at the same depth at same index position; repeat if one is shorter at a level.
-    // assuming both arrays, repeat the shorter over the longer
-    // call internally recur till can distribute right or just apply
+    // Distribute fn between non-scalar tensors X, Y: pair them up term-wise and calling distribute recursively.
+    // If at any depth X and Y have different lengths, recycle if the mod of lengths is 0.
     distributeBoth: function(fn, X, Y) {
         var Xlen = X.length,
             Ylen = Y.length;
@@ -79,179 +71,203 @@ var u = {
             var Llen = L.length,
                 Slen = S.length,
                 res = Array(Llen);
-            while (Llen--) res[Llen] = u.distribute(fn, S[Llen % Slen], L[Llen]);
+            while (Llen--) res[Llen] = _m.distribute(fn, S[Llen % Slen], L[Llen]);
             return res;
         } else throw "Cannot distribute arrays of different dimensions.";
     },
-    // Generic-distribute any tensor X over Y, if dimensions match up (or the longer is a multiple of the shorter, repeat shorter)
-    // uses recursion, thus assumes data set is not too deeply nested
-    // (u.a_add,w,w) 7.5 / 16.4
-    // This method is correct and at its fastest. But may rebuild specific multiplication/distribution methods later, which may be even faster
+    // Generic Distribute: Distribute fn between left tensor X and right tensor Y, while preserving the argument-ordering (vital for non-commutative functions). 
+    // This pairs up the tensors term-wise while descending down the depths recursively, until finding a scalar to distributeLeft/Right.
+    // Method is at its fastest, and assuming the data depth isn't too deep (otherwise JS will have troubles with it)
     distribute: function(fn, X, Y) {
         if (X instanceof Array)
             return Y instanceof Array ?
-                u.distributeBoth(fn, X, Y) : u.distributeLeft(fn, X, Y);
+                _m.distributeBoth(fn, X, Y) : _m.distributeLeft(fn, X, Y);
         else
             return Y instanceof Array ?
-                u.distributeRight(fn, X, Y) : fn(X, Y);
+                _m.distributeRight(fn, X, Y) : fn(X, Y);
     },
 
-    // (u.a_add,w,w) 8.5 / 16.4
-    // Associate: assuming arguments are non-arrays.
-    // argObj is the arguments from the higher function (can be arr too)
+    // Generic associate: take the arguments object or array and apply atomic fn (non-tensor) from left to right
     asso: function(fn, argObj) {
-        // var len = argObj.length,
-        //     // optimize arg form baed on length or argObj
-        //     args = len < 3 ? argObj : _.toArray(argObj),
-        //     res = fn(args[--len], args[--len]);
-        // while (len--) res = fn(res, args[len]);
-        // return res;
         var len = argObj.length,
             i = 0;
-        // optimize arg form baed on length or argObj
-        args = len < 3 ? argObj : _.toArray(argObj),
+        // optimize arg form based on length or argObj
+        var args = len < 3 ? argObj : _.toArray(argObj),
             res = fn(args[i++], args[i++]);
         while (i < len) res = fn(res, args[i++]);
         return res;
     },
 
-    // associate with distribute. Useful, fast shortcut
+    // Associate with distributivity: Similar to asso but is for tensor functions; apply atomic fn distributively from left to right.
+    // Usage: for applying fn on tensors element-wise if they have matching dimensions.
     assodist: function(fn, argObj) {
         var len = argObj.length,
             i = 0;
-        // optimize arg form baed on length or argObj
-        args = len < 3 ? argObj : _.toArray(argObj),
-            res = u.distribute(fn, args[i++], args[i++]);
-        while (i < len) res = u.distribute(fn, res, args[i++]);
+        // optimize arg form based on length or argObj
+        var args = len < 3 ? argObj : _.toArray(argObj),
+            res = _m.distribute(fn, args[i++], args[i++]);
+        while (i < len) res = _m.distribute(fn, res, args[i++]);
         return res;
     },
 
-
     // Future:
-    // cross and wedge, need index summation too
+    // cross and wedge, need index summation too, matrix mult.
 
 
-    //////////////////////////////
-    // Basic arithmetic methods //
-    //////////////////////////////
+    /////////////////////
+    // Basic functions //
+    /////////////////////
 
-
-    // concat all args and flattenDeep
-    // trials: 50Mil
-    // args, this-time / R-time
-    // (1,1) 7.7 / 13.5
-    // (0,1,2,3,4,5) 10.4 / 23.6
-    // (v) 1.8 / 14.2
-    // (v,v) 8.9 / 18.1
-    // (v,v,v) 11.15 / 23.1
+    // Concat all arguments into single vector by _.flattenDeep
     c: function() {
         return _.flattenDeep(_.toArray(arguments));
     },
-    // atomic for sum: takes in one array (can be nested)
-    // (v) 1.1 / 18.1
-    a_sum: function(v) {
+    // atomic sum: takes in a tensor (any rank) and sum all values
+    a_sum: function(T) {
         // actual function call; recurse if need to
         var total = 0,
-            len = v.length;
-        while (len--) total += (v[len] instanceof Array ?
-            u.a_sum(v[len], 0) : v[len])
+            len = T.length;
+        while (len--) total += (T[len] instanceof Array ?
+            _m.a_sum(T[len], 0) : T[len])
         return total;
     },
-
-    // sum all the arguments by deep-flattening this-time
-    // Doesn't use _.flattenDeep(_.toArray(arguments)) cuz it's much slower
-    // Each extra layer of array nest costs +2s for 50Mil runs
-    // (0,1,2,3,4,5) 1.6 / 44.6
-    // (v) 1.9 / 18.1
-    // (0,1,2,3,4,5,v) 3.1 / 53.1
-    // (v,v) 3.4 / 24.5
-    // (v,v,v) 4.7 / 30.1
-    // (v,v,v,v) 6.3 / 37
+    // sum all values in all arguments
     sum: function() {
         var res = 0;
         var len = arguments.length;
         while (len--) res += (arguments[len] instanceof Array ?
-            u.a_sum(arguments[len]) : arguments[len])
+            _m.a_sum(arguments[len]) : arguments[len])
         return res;
     },
-    // atomic for prod
-    a_prod: function(v) {
+    // atomic prod, analogue to a_sum. Multiply all values in a tensor
+    a_prod: function(T) {
         // actual function call; recurse if need to
         var total = 1,
-            len = v.length;
-        while (len--) total *= (v[len] instanceof Array ?
-            u.a_prod(v[len], 1) : v[len])
+            len = T.length;
+        while (len--) total *= (T[len] instanceof Array ?
+            _m.a_prod(T[len], 1) : T[len])
         return total;
     },
-    // take product by collapsing args. Like sum
+    // product of all values in all arguments
     prod: function() {
-        var res = 1;
-        var len = arguments.length;
+        var res = 1,
+            len = arguments.length;
         while (len--) res *= (arguments[len] instanceof Array ?
-            u.a_prod(arguments[len]) : arguments[len])
+            _m.a_prod(arguments[len]) : arguments[len])
         return res;
     },
 
-
-    // the atomic add (for non-arrays) for the generic method.
+    // atomic add: add two scalars x, y.
     a_add: function(x, y) {
         return x + y;
     },
-    // the generic add
-    // (v,1) 5.7 / 15.7 aim for 3?
-    // (v,v) 8.6 / 16.4 aim for 3s
-    // (v,v,v) 18.9 / 25.3 aim for 6s
-    // (v,v,v,v) 25.1 / 33.9
-    // (v,v,v,v,v) 33.4 / 42.2
-    // (v,1,2,3,4,5,6,7,8,9,0) 17.3 / 76.8
+    // add all tensor arguments element-wise/distributively and associatively
     add: function() {
         // sample call pattern: pass whole args
-        return u.assodist(u.a_add, arguments);
+        return _m.assodist(_m.a_add, arguments);
     },
-    // atomic minus
+    // atomic subtract
     a_subtract: function(x, y) {
         return x - y;
     },
+    // subtract all tensor arguments element-wise/distributively and associatively
     subtract: function() {
-        return u.assodist(u.a_subtract, arguments);
+        return _m.assodist(_m.a_subtract, arguments);
     },
-
+    // atomic multiply
     a_multiply: function(x, y) {
         return x * y;
     },
+    // multiply all tensor arguments element-wise/distributively and associatively
+    // Note: This is generic; is different from matrix multiplication
     multiply: function() {
-        return u.assodist(u.a_multiply, arguments);
+        return _m.assodist(_m.a_multiply, arguments);
     },
-
+    // atomic divide
     a_divide: function(x, y) {
         return x / y;
     },
+    // divide all tensor arguments element-wise/distributively and associatively
     divide: function() {
-        return u.assodist(u.a_divide, arguments);
+        return _m.assodist(_m.a_divide, arguments);
+    },
+    // atomic log. Use base e by default
+    a_log: function(x, base) {
+        return base == undefined ? Math.log(x) : Math.log(x) / Math.log(base);
+    },
+    // take the log of tensor T to the n element-wise
+    log: function(T, base) {
+        return _m.distribute(_m.a_log, T, base);
+    },
+    // atomic power
+    a_pow: Math.pow,
+    // take the power of tensor T to the n element-wise
+    pow: function(T, n) {
+        return _m.distribute(_m.a_pow, T, n);
+    },
+    // atomic root
+    a_root: function(x, n) {
+        return n % 2 ?
+            // if odd power
+            Math.sign(x) * Math.pow(Math.abs(x), 1 / n) :
+            Math.pow(x, 1 / n);
+    },
+    // take the n-th root of tensor T element-wise
+    root: function(T, n) {
+        return _m.distribute(_m.a_root, T, n);
+    },
+    // atomic square root
+    a_sqrt: Math.sqrt,
+    // take the sqrt of a tensor T
+    sqrt: function(T) {
+        return _m.distribute(_m.a_sqrt, T);
+    },
+    // return the sum of n-powers of a tensor, default to n = 2
+    powSum: function(T, n) {
+        var L = n == undefined ? 2 : n;
+        return _.sum(_m.pow(T, L));
+    },
+    // return the L-n norm of a vector, default to L-2
+    norm: function(v, n) {
+        var L = n == undefined ? 2 : n;
+        return _m.a_root(_m.powSum(v, L), L);
+    },
+    // normalize a vector(tensor) by L-n norm, default to n=2
+    normalize: function(v, n) {
+        return _m.divide(v, _m.norm(v, n));
+    },
+    // rescale a vector to unit length
+    rescale: function(v) {
+        return _m.normalize(v, 1);
     },
 
+    // abs trigs hyperbolictrigs
+    // Implement all? to use directly on tensors
 
-    ////////////////////////////
-    // Basic Tensor functions //
-    ////////////////////////////
 
-    // get the depth of array M; assuming homogen tensor
-    depth: function(M) {
-        var m = M,
+    ///////////////////////
+    // Tensor properties //
+    ///////////////////////
+
+    // Note that a tensor has homogenous depth, that is, there cannot tensors of different ranks in the same vector, e.g. [1, [2,3], 4] is prohibited.
+
+    // return the depth (rank) of tensor, assuming homogeneity
+    depth: function(T) {
+        var t = T,
             d = 0;
-        while (m.length) {
-            d += m.length;
-            m = m[0];
+        while (t.length) {
+            d += t.length;
+            t = t[0];
         }
         return d;
     },
 
-    // get the size of a tensor (by flattenDeep)
-    size: function(M) {
-        return _.flattenDeep(M).length;
+    // return the size of a tensor (total number of scalar entries)
+    size: function(T) {
+        return _.flattenDeep(T).length;
     },
 
-    // Get the dimension of a tensor, assume rectangular
+    // Get the dimension of a tensor by _.flattenDeep, assume rectangular
     dim: function(T) {
         var dim = [],
             ptr = T;
@@ -272,14 +288,14 @@ var u = {
         return flat;
     },
 
-    // generate base-nary number of length
-    genAry: function(length, base) {
-        var range = _.map(_.range(base), String);
+    // generate n-nary number of length
+    genAry: function(length, n) {
+        var range = _.map(_.range(n), String);
         var tmp = range,
             it = length;
         while (--it) {
             tmp = _.flattenDeep(_.map(range, function(x) {
-                return u.distributeRight(u.a_add, x, tmp)
+                return _m.distributeRight(_m.a_add, x, tmp)
             }));
         }
         return tmp;
@@ -294,12 +310,12 @@ var u = {
         })
     },
 
-    // generate all subset indices up to n-cardinality
+    // generate all subset indices of n items
     subset: function(n) {
         var range = _.map(_.range(n), String),
             res = [],
             count = n;
-            res.push(range); //init
+        res.push(range); //init
         while (--count) {
             // the last batch to expand on
             var last = _.last(res);
@@ -313,44 +329,75 @@ var u = {
         return res;
     },
 
-
-    // generate all permutation indices up to len n
-    perm: function(n) {
+    // generate all permutation subset indices of n items
+    pSubset: function(n) {
+        var range = _.map(_.range(n), String),
+            res = [],
+            count = n;
+        res.push(range); //init
+        while (--count) {
+            // the last batch to expand on
+            var last = _.last(res);
+            var batch = [];
+            _.each(last, function(k) {
+                for (var i = 0; i < n; i++)
+                    if (!_.contains(k.split(''), String(i)))
+                        batch.push(k + i);
+            })
+            res.push(batch);
+        }
+        return res;
+    },
+    // generate all permutations of n items
+    permute: function(n) {
         var range = _.range(n),
             res = [],
             diffs, k = 0;
         while (k != -1) {
             res.push(range.slice(0));
-            diffs = u.stairs(range),
-                k = _.findLastIndex(diffs, u.isPositive);
+            diffs = _m.stairs(range),
+                k = _.findLastIndex(diffs, _m.isPositive);
             var l = _.findLastIndex(range, function(t) {
                 return t > range[k];
             });
-            u.swap(range, k, l);
-            u.reverse(range, k + 1, null);
+            _m.swap(range, k, l);
+            _m.reverse(range, k + 1, null);
         }
         return res;
     },
+    // generate the indices of n-perm-r
+    permList: function(n, r) {
+        return _m.toNumArr(_m.pSubset(n)[r - 1]);
+    },
+    // generate the indices of n-choose-r
+    combList: function(n, r) {
+        return _m.toNumArr(_m.subset(n)[r - 1]);
+    },
 
-
+    // return factorial(n)
+    // alias: fact
     factorial: function(n) {
-        var count = n, res = n;
-        while(--count)
+        var count = n,
+            res = n;
+        while (--count)
             res *= count;
         return res;
     },
-
+    // return n-permute-r
+    // alias: perm
     permutation: function(n, r) {
-        var count = r, term = n; res = n;
-        while(--count)
+        var count = r,
+            term = n;
+        res = n;
+        while (--count)
             res *= --term;
         return res;
     },
-
+    // return n-choose-r
+    // alias: comb
     combination: function(n, r) {
-        return u.permutation(n,r)/u.factorial(r);
+        return _m.permutation(n, r) / _m.factorial(r);
     },
-
 
 
 
@@ -402,7 +449,7 @@ var u = {
         var j = l == undefined ? arr.length - 1 : l;
         var mid = Math.ceil((i + j) / 2);
         while (i < mid)
-            u.swap(arr, i++, j--);
+            _m.swap(arr, i++, j--);
         return arr;
     },
 
@@ -414,11 +461,6 @@ var u = {
             st[dlen] = arr[dlen + 1] - arr[dlen];
         return st;
     },
-
-    norm: function(arr) {
-
-    },
-
 
 
 
@@ -432,12 +474,50 @@ var u = {
     // _.flatten, _.flattenDeep
 
 
-    // fillMat
-    // fillMat
-    // fillMat
-    // fillMat
-    // fillMat
-    // fillMat
+    // get the maximum length of the deepest array in tensor T.
+    maxDeepestLength: function(T) {
+        var stack = [],
+            sizes = [];
+        stack.push(T);
+        while (stack.length) {
+            var curr = stack.pop(),
+                len = curr.length;
+            if (_m.isFlat(curr))
+                sizes.push(len);
+            else
+                while (len--)
+                    stack.push(curr[len]);
+        }
+        return _.max(sizes);
+    },
+    // extend an array till toLen, filled with val defaulted to 0.
+    extendArray: function(arr, val, toLen) {
+        var lendiff = toLen - arr.length,
+            repVal = val == undefined ? 0 : val;
+        if (lendiff < 0)
+            throw "Array longer than the length to extend to"
+        while (lendiff--)
+            arr.push(repVal);
+        return arr;
+    },
+    // make a tensor rectangular by filling with val, defaulted to 0.
+    // mutates the tensor.
+    rectangularize: function(T, val) {
+        var toLen = _m.maxDeepestLength(T),
+            stack = [];
+        stack.push(T);
+        while (stack.length) {
+            var curr = stack.pop();
+            if (_m.isFlat(curr))
+                _m.extendArray(curr, val, toLen);
+            else
+                _.each(curr, function(c) {
+                    stack.push(c);
+                })
+        }
+        return T;
+    },
+
 
     // use chunk from inside to outside:
     reshape: function(arr, dimArr) {
@@ -462,10 +542,6 @@ var u = {
         });
     },
 
-    // make rectangular
-    // make rectangular
-    // make rectangular
-    // make rectangular
 
     // swap between rows and columns. Need be rectangular
     transpose: function(M) {
@@ -494,33 +570,12 @@ var u = {
     },
 
 
-    a_log: function(x, base) {
-        return base == undefined ? Math.log(x) : Math.log(x) / Math.log(base);
-    },
-
-    log: function(T, base) {
-        return u.distribute(u.a_log, T, base);
-    },
-
-    a_pow: Math.pow,
-
-    pow: function(T, n) {
-        return u.distribute(u.a_pow, T, n);
-    },
-
     // More functions
 
     // (v,v) 10.9
     dot: function(X, Y) {
-        return _.sum(u.multiply(X, Y));
+        return _.sum(_m.multiply(X, Y));
     },
-
-    // Need data dimension transformer
-    // Need data dimension transformer
-    // Need data dimension transformer
-    // Need data dimension transformer
-    // Need data dimension transformer
-    // Need data dimension transformer
 
 
     // Properties
@@ -530,28 +585,27 @@ var u = {
     ////////////////
 
     // need generic error message to check
-
-    // remove all recursions
-    // remove all recursions
-    // remove all recursions
-    // remove all recursions
-    // remove all recursions
 }
 
-// console.log(u.subset(5));
-console.log(u.factorial(3));
-console.log(u.permutation(5,2));
-console.log(u.combination(5,2));
-// console.log(_.map(u.subset(3), u.toNumArr));
-// console.log(u.perm(3));
+var mm = [
+    [1, 2],
+    [3, 4, 2]
+]
 
+// console.log(_m.pSubset(3));
+// console.log(_m.subset(3));
+console.log(_m.permute(3));
+console.log(_m.permList(3, 2));
+console.log(_m.combList(3, 2));
 
 // var vv = _.range(24);
 function benchmark() {
-    var MAX = 5000000;
+    var MAX = 50000000;
     var start = new Date().getTime();
-    // mydistright(u.a_add, 1, m);
+    // mydistright(_m.a_add, 1, m);
     while (MAX--) {
+        // _m.prod(mm)
+        // _m.add(1,1)
         // '1'<'2'
         // 'loremipsum'.split('')
 
