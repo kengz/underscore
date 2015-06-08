@@ -4,8 +4,6 @@ var _ = require('lodash');
 // var _ = require('underscore');
 var m = require('mathjs');
 
-var h = require(__dirname + '/helper.js').h;
-
 // cbind
 // random then distribution
 // Regex
@@ -37,6 +35,14 @@ var _m = {
     // A generic function that operates over tensor is built from an atomic function fn taking two scalar arguments. 
     // Applying a function into depths of tensor is done via distribution, and evaluating a multi-argument function is done via associativity.
 
+    // distribute a unary function over every scalar in tensor Y;
+    distributeSingle: function(fn, Y) {
+        var len = Y.length,
+            res = Array(len);
+        while (len--) res[len] = Y[len] instanceof Array ?
+            _m.distributeSingle(fn, Y[len]) : fn(Y[len])
+        return res;
+    },
     // Distribute fn with left scalar x over right tensor Y.
     distributeRight: function(fn, x, Y) {
         var len = Y.length,
@@ -199,11 +205,21 @@ var _m = {
     log: function(T, base) {
         return _m.distribute(_m.a_log, T, base);
     },
+    a_exp: Math.exp,
+    exp: function(T) {
+        return _m.distribute(_m.a_exp, T);
+    },
     // atomic power
     a_pow: Math.pow,
     // take the power of tensor T to the n element-wise
     pow: function(T, n) {
         return _m.distribute(_m.a_pow, T, n);
+    },
+    a_square: function(x) {
+        return x * x;
+    },
+    square: function(T) {
+        return _m.distributeSingle(_m.a_square, T);
     },
     // atomic root
     a_root: function(x, n) {
@@ -222,30 +238,10 @@ var _m = {
     sqrt: function(T) {
         return _m.distribute(_m.a_sqrt, T);
     },
-    // return the sum of n-powers of a tensor, default to n = 2
-    powSum: function(T, n) {
-        var L = n == undefined ? 2 : n;
-        return _.sum(_m.pow(T, L));
-    },
-    // return the L-n norm of a vector, default to L-2
-    norm: function(v, n) {
-        var L = n == undefined ? 2 : n;
-        return _m.a_root(_m.powSum(v, L), L);
-    },
-    // normalize a vector(tensor) by L-n norm, default to n=2
-    normalize: function(v, n) {
-        return _m.divide(v, _m.norm(v, n));
-    },
-    // rescale a vector to unit length
-    rescale: function(v) {
-        return _m.normalize(v, 1);
-    },
-    // return the dot product of two vectors
-    dot: function(X, Y) {
-        return _.sum(_m.multiply(X, Y));
-    },
 
 
+    // abs trigs hyperbolictrigs
+    // abs trigs hyperbolictrigs
     // abs trigs hyperbolictrigs
     // Implement all? to use directly on tensors
 
@@ -261,139 +257,23 @@ var _m = {
     isPositive: function(x) {
         return x > 0;
     },
-
-
-    //////////////////////////
-    // Handy analytical ops //
-    //////////////////////////
-
-    // the stairs: adjacent difference in arr
-    stairs: function(arr) {
-        var dlen = arr.length - 1,
-            st = Array(dlen);
-        while (dlen--)
-            st[dlen] = arr[dlen + 1] - arr[dlen];
-        return st;
+    // check if x less than or eq to 0
+    nonPositive: function(x) {
+        return !(x > 0);
     },
-
-
-
-    ///////////////////////////////
-    // Subsets and combinatorics //
-    ///////////////////////////////
-
-    // generate n-nary number of length
-    genAry: function(length, n) {
-        var range = _.map(_.range(n), String);
-        var tmp = range,
-            it = length;
-        while (--it) {
-            tmp = _.flattenDeep(_.map(range, function(x) {
-                return _m.distributeRight(_m.a_add, x, tmp)
-            }));
-        }
-        return tmp;
+    // check if x is negative
+    isNegative: function(x) {
+        return x < 0;
     },
+    // check if x greater than or eq to 0
+    nonNegative: function(x) {
+        return !(x < 0);
+    },
+    nonZero: function(x) {
+        return x != 0;
+    },
+    
 
-    // convert array of strings to array of array of numbers
-    toNumArr: function(sarr) {
-        return _.map(sarr, function(str) {
-            return _.map(str.split(''), function(x) {
-                return parseInt(x);
-            })
-        })
-    },
-
-    // generate all permutation subset indices of n items
-    pSubset: function(n) {
-        var range = _.map(_.range(n), String),
-            res = [],
-            count = n;
-        res.push(range); //init
-        while (--count) {
-            // the last batch to expand on
-            var last = _.last(res);
-            var batch = [];
-            _.each(last, function(k) {
-                for (var i = 0; i < n; i++)
-                    if (!_.contains(k.split(''), String(i)))
-                        batch.push(k + i);
-            })
-            res.push(batch);
-        }
-        return res;
-    },
-
-    // generate all subset indices of n items
-    subset: function(n) {
-        var range = _.map(_.range(n), String),
-            res = [],
-            count = n;
-        res.push(range); //init
-        while (--count) {
-            // the last batch to expand on
-            var last = _.last(res);
-            var batch = [];
-            _.each(last, function(k) {
-                for (var i = Number(_.last(k)) + 1; i < n; i++)
-                    batch.push(k + i);
-            })
-            res.push(batch);
-        }
-        return res;
-    },
-
-    // generate the indices of n-perm-r
-    permList: function(n, r) {
-        return _m.toNumArr(_m.pSubset(n)[r - 1]);
-    },
-    // generate the indices of n-choose-r
-    combList: function(n, r) {
-        return _m.toNumArr(_m.subset(n)[r - 1]);
-    },
-
-    // generate all permutations of n items
-    permute: function(n) {
-        var range = _.range(n),
-            res = [],
-            diffs, k = 0;
-        while (k != -1) {
-            res.push(range.slice(0));
-            diffs = _m.stairs(range),
-                k = _.findLastIndex(diffs, _m.isPositive);
-            var l = _.findLastIndex(range, function(t) {
-                return t > range[k];
-            });
-            _m.swap(range, k, l);
-            _m.reverse(range, k + 1, null);
-        }
-        return res;
-    },
-
-    // return factorial(n)
-    // alias: fact
-    factorial: function(n) {
-        var count = n,
-            res = n;
-        while (--count)
-            res *= count;
-        return res;
-    },
-    // return n-permute-r
-    // alias: perm
-    permutation: function(n, r) {
-        var count = r,
-            term = n;
-        res = n;
-        while (--count)
-            res *= --term;
-        return res;
-    },
-    // return n-choose-r
-    // alias: comb
-    combination: function(n, r) {
-        return _m.permutation(n, r) / _m.factorial(r);
-    },
 
 
 
@@ -567,7 +447,245 @@ var _m = {
     },
 
 
-    // Properties
+
+    ///////////////////////////////
+    // Subsets and combinatorics //
+    ///////////////////////////////
+
+    // generate n-nary number of length
+    genAry: function(length, n) {
+        var range = _.map(_.range(n), String);
+        var tmp = range,
+            it = length;
+        while (--it) {
+            tmp = _.flattenDeep(_.map(range, function(x) {
+                return _m.distributeRight(_m.a_add, x, tmp)
+            }));
+        }
+        return tmp;
+    },
+
+    // convert array of strings to array of array of numbers
+    toNumArr: function(sarr) {
+        return _.map(sarr, function(str) {
+            return _.map(str.split(''), function(x) {
+                return parseInt(x);
+            })
+        })
+    },
+
+    // generate all permutation subset indices of n items
+    pSubset: function(n) {
+        var range = _.map(_.range(n), String),
+            res = [],
+            count = n;
+        res.push(range); //init
+        while (--count) {
+            // the last batch to expand on
+            var last = _.last(res);
+            var batch = [];
+            _.each(last, function(k) {
+                for (var i = 0; i < n; i++)
+                    if (!_.contains(k.split(''), String(i)))
+                        batch.push(k + i);
+            })
+            res.push(batch);
+        }
+        return res;
+    },
+
+    // generate all subset indices of n items
+    subset: function(n) {
+        var range = _.map(_.range(n), String),
+            res = [],
+            count = n;
+        res.push(range); //init
+        while (--count) {
+            // the last batch to expand on
+            var last = _.last(res);
+            var batch = [];
+            _.each(last, function(k) {
+                for (var i = Number(_.last(k)) + 1; i < n; i++)
+                    batch.push(k + i);
+            })
+            res.push(batch);
+        }
+        return res;
+    },
+
+    // generate the indices of n-perm-r
+    permList: function(n, r) {
+        return _m.toNumArr(_m.pSubset(n)[r - 1]);
+    },
+    // generate the indices of n-choose-r
+    combList: function(n, r) {
+        return _m.toNumArr(_m.subset(n)[r - 1]);
+    },
+
+    // generate all permutations of n items
+    permute: function(n) {
+        var range = _.range(n),
+            res = [],
+            diffs, k = 0;
+        while (k != -1) {
+            res.push(range.slice(0));
+            diffs = _m.stairs(range),
+                k = _.findLastIndex(diffs, _m.isPositive);
+            var l = _.findLastIndex(range, function(t) {
+                return t > range[k];
+            });
+            _m.swap(range, k, l);
+            _m.reverse(range, k + 1, null);
+        }
+        return res;
+    },
+
+    // return factorial(n)
+    // alias: fact
+    factorial: function(n) {
+        var count = n,
+            res = n;
+        while (--count)
+            res *= count;
+        return res;
+    },
+    // return n-permute-r
+    // alias: perm
+    permutation: function(n, r) {
+        var count = r,
+            term = n;
+        res = n;
+        while (--count)
+            res *= --term;
+        return res;
+    },
+    // return n-choose-r
+    // alias: comb
+    combination: function(n, r) {
+        return _m.permutation(n, r) / _m.factorial(r);
+    },
+
+
+    /////////////////////
+    // Handy vectorial //
+    /////////////////////
+
+    // return the dot product of two vectors
+    dot: function(X, Y) {
+        return _.sum(_m.multiply(X, Y));
+    },
+    // return the sum of n-powers of a tensor, default to n = 2
+    powSum: function(T, n) {
+        var L = n == undefined ? 2 : n;
+        return _.sum(_m.pow(T, L));
+    },
+    // return the L-n norm of a vector, default to L-2
+    norm: function(v, n) {
+        var L = n == undefined ? 2 : n;
+        return _m.a_root(_m.powSum(v, L), L);
+    },
+    // normalize a vector(tensor) by L-n norm, default to n=2
+    normalize: function(v, n) {
+        return _m.divide(v, _m.norm(v, n));
+    },
+    // rescale a vector to unit length
+    rescale: function(v) {
+        return _m.normalize(v, 1);
+    },
+
+    /////////////////
+    // Handy trend //
+    /////////////////
+
+    // return the stairs: adjacent difference in a vector
+    stairs: function(v) {
+        var dlen = v.length - 1,
+            st = Array(dlen);
+        while (dlen--)
+            st[dlen] = v[dlen + 1] - v[dlen];
+        return st;
+    },
+
+    // return the tensor T with only signs
+    sign: function(T) {
+        return _m.distributeSingle(Math.sign, T);
+    },
+    // check if all tensor entries are of the same sign, with the specified sign function
+    sameSign: function(T, signFn) {
+        return Boolean(_m.prod(_m.distributeSingle(signFn, T)));
+    },
+
+    // check the trend of vector v using sign-function
+    stairsTrend: function(v, signFn) {
+        return _m.sameSign(_m.stairs(v), signFn);
+    },
+    // check if vector v is increasing
+    increasing: function(v) {
+        return _m.stairsTrend(v, _m.isPositive);
+    },
+    // check is vector v is non-decreasing
+    nonDecreasing: function(v) {
+        return _m.stairsTrend(v, _m.nonNegative);
+    },
+    // check is vector v is decreasing
+    decreasing: function(v) {
+        return _m.stairsTrend(v, _m.isNegative);
+    },
+    // check is vector v is non-increasing
+    nonIncreasing: function(v) {
+        return _m.stairsTrend(v, _m.nonPositive);
+    },
+
+
+
+
+    ///////////////////////
+    // Handy statistical //
+    ///////////////////////
+
+
+    // return the average of a vector
+    mean: function(v) {
+        return _.sum(v) / v.length;
+    },
+
+    // return the expectation value E(fn(x)), given probability and value vectors, and an optional atomic fn, defaulted to identity E(x).
+    // Note: fn must be atomic
+    // alias E
+    expVal: function(pV, xV, fn) {
+        if (fn != undefined)
+            return _m.dot(pV, _m.distributeSingle(fn, xV));
+        return _m.dot(pV, xV);
+    },
+    // return the variance, given probability and value vectors
+    // alias Var
+    variance: function(pV, xV) {
+        return _m.expVal(pV, xV, _m.a_square) - _m.a_square(_m.expVal(pV, xV));
+    },
+    // return the variance, given probability and value vectors
+    stdev: function(pV, xV) {
+        return _m.a_sqrt(_m.variance(pV, xV));
+    },
+
+    // Calculate the rate of return r in % of an exp growth, given final value m_f, initial value m_i, and time interval t
+    expGRate: function(m_f, m_i, t) {
+        return 100 * (Math.exp(Math.log(m_f / m_i) / t) - 1);
+    },
+    // Calculate the trailing exp rate of return in the last t years given a vector v
+    trailExpGRate: function(v, t) {
+        var len = arr.length;
+        return _m.expRate(v[len - 1], v[len - 1 - t], t);
+    },
+
+
+
+
+    // growth rate
+
+    // Object get set
+    // Object get set
+    // Object get set
+    // Object get set
 
     ////////////////
     // error logs //
@@ -576,17 +694,28 @@ var _m = {
     // need generic error message to check
 }
 
+var pV = _m.normalize(v, 1);
+// var pV = [0.2,0.2,0.2,0.2,0.2,0.2]
+// console.log(pV);
+// console.log(_m.expVal(pV, v))
+// console.log(_m.variance(pV, v))
+
+console.log(_.keys(_m));
+console.log(_.keys(_m).length);
+console.log(_m.increasing(v));
+
 var mm = [
     [1, 2],
     [3, 4, 2]
 ]
 
+// console.log(_m.mean(v));
+// console.log(_m.normalize(v,1));
 
 // var vv = _.range(24);
 function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
-    // mydistright(_m.a_add, 1, m);
     while (MAX--) {
 
     }
