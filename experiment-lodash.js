@@ -7,10 +7,10 @@ var m = require('mathjs');
 // cbind
 // random then distribution
 // Regex
-// general structure transformation
-// log exp
-// subsetting, combination
-// init array to dim all 0
+// ~general structure transformation
+// ~log exp
+// ~subsetting, combination
+// ~init array to dim all 0
 // logical
 // index summation
 
@@ -37,6 +37,7 @@ var _m = {
 
     // distribute a unary function over every scalar in tensor Y;
     distributeSingle: function(fn, Y) {
+        if (!(Y instanceof Array)) return fn(Y);
         var len = Y.length,
             res = Array(len);
         while (len--) res[len] = Y[len] instanceof Array ?
@@ -116,6 +117,8 @@ var _m = {
         return res;
     },
 
+    // Future:
+    // Future:
     // Future:
     // cross and wedge, need index summation too, matrix mult.
 
@@ -205,16 +208,7 @@ var _m = {
     log: function(T, base) {
         return _m.distribute(_m.a_log, T, base);
     },
-    a_exp: Math.exp,
-    exp: function(T) {
-        return _m.distribute(_m.a_exp, T);
-    },
-    // atomic power
-    a_pow: Math.pow,
-    // take the power of tensor T to the n element-wise
-    pow: function(T, n) {
-        return _m.distribute(_m.a_pow, T, n);
-    },
+    // atomic square
     a_square: function(x) {
         return x * x;
     },
@@ -232,19 +226,12 @@ var _m = {
     root: function(T, n) {
         return _m.distribute(_m.a_root, T, n);
     },
-    // atomic square root
-    a_sqrt: Math.sqrt,
-    // take the sqrt of a tensor T
-    sqrt: function(T) {
-        return _m.distribute(_m.a_sqrt, T);
-    },
 
 
-    // abs trigs hyperbolictrigs
-    // abs trigs hyperbolictrigs
-    // abs trigs hyperbolictrigs
-    // Implement all? to use directly on tensors
-
+    ////////////////////
+    // Basic checkers //
+    ////////////////////
+    
     // check if x is an integer
     isInteger: function(x) {
         return x == Math.floor(x);
@@ -272,9 +259,129 @@ var _m = {
     nonZero: function(x) {
         return x != 0;
     },
-    
 
 
+    //////////////////////////////////////////
+    // Unary functions from JS Math object, //
+    //////////////////////////////////////////
+    // wrapped to function with generic tensor
+
+    abs: function(T) {
+        return _m.distributeSingle(Math.abs, T);
+    },
+    acos: function(T) {
+        return _m.distributeSingle(Math.acos, T);
+    },
+    acosh: function(T) {
+        return _m.distributeSingle(Math.acosh, T);
+    },
+    asin: function(T) {
+        return _m.distributeSingle(Math.asin, T);
+    },
+    asinh: function(T) {
+        return _m.distributeSingle(Math.asinh, T);
+    },
+    atan: function(T) {
+        return _m.distributeSingle(Math.atan, T);
+    },
+    atanh: function(T) {
+        return _m.distributeSingle(Math.atanh, T);
+    },
+    ceil: function(T) {
+        return _m.distributeSingle(Math.ceil, T);
+    },
+    cos: function(T) {
+        return _m.distributeSingle(Math.cos, T);
+    },
+    cosh: function(T) {
+        return _m.distributeSingle(Math.cosh, T);
+    },
+    exp: function(T) {
+        return _m.distributeSingle(Math.exp, T);
+    },
+    floor: function(T) {
+        return _m.distributeSingle(Math.floor, T);
+    },
+    log10: function(T) {
+        return _m.distributeSingle(Math.log10, T);
+    },
+    log1p: function(T) {
+        return _m.distributeSingle(Math.log1p, T);
+    },
+    log2: function(T) {
+        return _m.distributeSingle(Math.log2, T);
+    },
+    round: function(T) {
+        return _m.distributeSingle(Math.round, T);
+    },
+    pow: function(T, n) {
+        return _m.distribute(Math.pow, T, n);
+    },
+    sign: function(T) {
+        return _m.distributeSingle(Math.sign, T);
+    },
+    sin: function(T) {
+        return _m.distributeSingle(Math.sin, T);
+    },
+    sinh: function(T) {
+        return _m.distributeSingle(Math.sinh, T);
+    },
+    sqrt: function(T) {
+        return _m.distributeSingle(Math.sqrt, T);
+    },
+    tan: function(T) {
+        return _m.distributeSingle(Math.tan, T);
+    },
+    tanh: function(T) {
+        return _m.distributeSingle(Math.tanh, T);
+    },
+    trunc: function(T) {
+        return _m.distributeSingle(Math.trunc, T);
+    },
+
+
+
+    /////////////////////
+    // Regex functions //
+    /////////////////////
+
+    // return a function that matches regex,
+    // e.g. matchRegex(/red/)('red Apple') returns true
+    reMatch: function(regex) {
+        return function(str) {
+            if (str != undefined)
+                return str.search(regex) != -1;
+        }
+    },
+    // negation of reMatch
+    reNotMatch: function(regex) {
+        return function(str) {
+            if (str != undefined)
+                return str.search(regex) == -1;
+        }
+    },
+    // return a single regex as the "AND" of all arg regex's
+    reAnd: function() {
+        function wrap(reg) {
+            return '(?=.*' + reg.replace(/\//g, '') + ')'
+        };
+        return new RegExp(_.map(_.toArray(arguments), wrap).join(''));
+    },
+    // return a function that matches all(AND) of the regexs
+    reAndMatch: function() {
+        return _m.reMatch(_m.reAnd.apply(null, arguments));
+    },
+    // return a single regex as the "OR" of all arg regex's
+    reOr: function() {
+        function wrap(reg) {
+            return '(?=.*' + reg.replace(/\//g, '') + ')'
+        };
+        return new RegExp(_.map(_.toArray(arguments), wrap).join('|'));
+    },
+    // return a function that matches at least one(OR) of the regexs
+    reOrMatch: function() {
+        return _m.reMatch(_m.reOr.apply(null, arguments));
+    },
 
 
     ////////////////////
@@ -593,6 +700,16 @@ var _m = {
         return _m.normalize(v, 1);
     },
 
+
+    //////////////////
+    // handy Matrix //
+    //////////////////
+
+    // Matrix ops
+    // Matrix ops
+    // Matrix ops
+
+
     /////////////////
     // Handy trend //
     /////////////////
@@ -606,10 +723,7 @@ var _m = {
         return st;
     },
 
-    // return the tensor T with only signs
-    sign: function(T) {
-        return _m.distributeSingle(Math.sign, T);
-    },
+
     // check if all tensor entries are of the same sign, with the specified sign function
     sameSign: function(T, signFn) {
         return Boolean(_m.prod(_m.distributeSingle(signFn, T)));
@@ -637,8 +751,6 @@ var _m = {
     },
 
 
-
-
     ///////////////////////
     // Handy statistical //
     ///////////////////////
@@ -664,8 +776,10 @@ var _m = {
     },
     // return the variance, given probability and value vectors
     stdev: function(pV, xV) {
-        return _m.a_sqrt(_m.variance(pV, xV));
+        return Math.sqrt(_m.variance(pV, xV));
     },
+
+
 
     // Calculate the rate of return r in % of an exp growth, given final value m_f, initial value m_i, and time interval t
     expGRate: function(m_f, m_i, t) {
@@ -679,6 +793,10 @@ var _m = {
 
 
 
+    // pick cbind by title
+    // pick cbind by title
+    // pick cbind by title
+    // pick cbind by title
 
     // growth rate
 
@@ -702,22 +820,21 @@ var pV = _m.normalize(v, 1);
 
 console.log(_.keys(_m));
 console.log(_.keys(_m).length);
-console.log(_m.increasing(v));
+
 
 var mm = [
     [1, 2],
     [3, 4, 2]
 ]
 
-// console.log(_m.mean(v));
-// console.log(_m.normalize(v,1));
 
 // var vv = _.range(24);
 function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
     while (MAX--) {
-
+        // _m.sqrt(10)
+        // Math.sqrt(10);
     }
     var end = new Date().getTime();
     var time = end - start;
