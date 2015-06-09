@@ -360,6 +360,13 @@ var _m = {
                 return str.search(regex) == -1;
         }
     },
+    // return the string matched by regex
+    reGet: function(regex) {
+        return function(str) {
+            if (str != undefined)
+                return str.match(regex)[0];
+        }
+    },
     // return a single regex as the "AND" of all arg regex's
     reAnd: function() {
         function wrap(reg) {
@@ -509,10 +516,23 @@ var _m = {
             arr.push(repVal);
         return arr;
     },
+    // applying _.indexOf in batch
+    batchIndexOf: function(arr, fieldArr) {
+        return _.map(fieldArr, function(t) {
+            return _.indexOf(arr, t)
+        });
+    },
+    // Assuming matrix has header, rbind by header fields instead of indices
+    rbindByField: function(M, fieldArr) {
+        // assuming header is first row of matrix
+        var header = M[0],
+        fieldInds = _m.batchIndexOf(header, fieldArr);
+        return _m.rbind(M, fieldInds);
+    },
     // return a copy with sub rows from matrix M
     rbind: function(M, indArr) {
         return _.map(indArr, function(i) {
-            return _.cloneDeep(M[i])
+            return _.cloneDeep(M[i]);
         });
     },
     // return a copy with sub rows from matrix M 
@@ -792,19 +812,6 @@ var _m = {
     },
 
 
-
-    // pick cbind by title
-    // pick cbind by title
-    // pick cbind by title
-    // pick cbind by title
-
-    // growth rate
-
-    // Object get set
-    // Object get set
-    // Object get set
-    // Object get set
-
     ////////////////
     // error logs //
     ////////////////
@@ -812,7 +819,7 @@ var _m = {
     // need generic error message to check
 }
 
-var pV = _m.normalize(v, 1);
+// var pV = _m.normalize(v, 1);
 // var pV = [0.2,0.2,0.2,0.2,0.2,0.2]
 // console.log(pV);
 // console.log(_m.expVal(pV, v))
@@ -820,7 +827,7 @@ var pV = _m.normalize(v, 1);
 
 console.log(_.keys(_m));
 console.log(_.keys(_m).length);
-
+console.log(_m.reGet(/ab/)('abcd'));
 
 var mm = [
     [1, 2],
@@ -833,8 +840,7 @@ function benchmark() {
     var MAX = 50000000;
     var start = new Date().getTime();
     while (MAX--) {
-        // _m.sqrt(10)
-        // Math.sqrt(10);
+
     }
     var end = new Date().getTime();
     var time = end - start;
